@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <title>Delegation Stack</title>
+  <defs>
+    <linearGradient id="ink" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#263c48"/>
+      <stop offset="1" stop-color="#14242d"/>
+    </linearGradient>
+    <linearGradient id="sea" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#76ddcf"/>
+      <stop offset="1" stop-color="#36aea1"/>
+    </linearGradient>
+    <linearGradient id="coral" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#ff8a6a"/>
+      <stop offset="1" stop-color="#f25d48"/>
+    </linearGradient>
+    <filter id="shell-shadow" x="-30%" y="-30%" width="160%" height="180%">
+      <feDropShadow dx="0" dy="28" stdDeviation="30" flood-color="#182832" flood-opacity=".18"/>
+    </filter>
+    <filter id="card-shadow" x="-30%" y="-30%" width="160%" height="180%">
+      <feDropShadow dx="0" dy="18" stdDeviation="18" flood-color="#182832" flood-opacity=".18"/>
+    </filter>
+  </defs>
+
+  <g id="delegation-stack">
+    <rect x="72" y="64" width="880" height="880" rx="202" fill="#fff" stroke="#dfe4e5" stroke-width="6" filter="url(#shell-shadow)"/>
+    <g transform="translate(180 205) rotate(-6 332 304)" filter="url(#card-shadow)">
+      <rect x="270" y="210" width="358" height="330" rx="94" fill="url(#coral)"/>
+      <rect x="36" y="272" width="348" height="318" rx="91" fill="url(#sea)"/>
+      <rect x="155" y="50" width="472" height="380" rx="112" fill="url(#ink)"/>
+
+      <path d="M232 158h142M232 226h245" stroke="#fff" stroke-width="26" stroke-linecap="round" opacity=".94"/>
+      <path d="M94 382h132M210 485h82" stroke="#fff" stroke-width="22" stroke-linecap="round" opacity=".86"/>
+      <path d="M431 316h140M448 430h112" stroke="#fff" stroke-width="22" stroke-linecap="round" opacity=".84"/>
+    </g>
+  </g>
+</svg>
