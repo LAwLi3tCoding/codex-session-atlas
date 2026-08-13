@@ -1,6 +1,64 @@
 import Foundation
 import SQLite3
 
+public enum MonitorPanelMode: Equatable {
+    case compact
+    case overview
+    case inspector
+}
+
+public enum MonitorPanelLayout {
+    public static func mode(forWidth width: Double) -> MonitorPanelMode {
+        if width >= 1_280 { return .inspector }
+        if width >= 900 { return .overview }
+        return .compact
+    }
+
+    public static func resolvedSelection(preferredID: String?, availableIDs: [String]) -> String? {
+        if let preferredID, availableIDs.contains(preferredID) { return preferredID }
+        return availableIDs.first
+    }
+}
+
+public enum CodexRuntimeTitle {
+    public static func resolve(threadID: String, name: String?, preview: String?) -> String {
+        for candidate in [name, preview] {
+            let value = candidate?.trimmingCharacters(in: .whitespacesAndNewlines)
+            if let value, !value.isEmpty { return value }
+        }
+        return threadID
+    }
+}
+
+public struct AppServerRequestState {
+    public private(set) var requestID: Int?
+    private var nextRequestID = 1
+
+    public init() {}
+
+    public mutating func startNext() -> Int? {
+        guard requestID == nil else { return nil }
+        let requestID = nextRequestID
+        nextRequestID += 1
+        self.requestID = requestID
+        return requestID
+    }
+
+    public mutating func finish(_ requestID: Int) -> Bool {
+        guard self.requestID == requestID else { return false }
+        self.requestID = nil
+        return true
+    }
+
+    public mutating func expire(_ requestID: Int) -> Bool {
+        finish(requestID)
+    }
+
+    public mutating func reset() {
+        requestID = nil
+    }
+}
+
 public struct AgentNode: Identifiable, Equatable {
     public let id: String
     public let name: String
@@ -51,7 +109,7 @@ public struct AgentSnapshot: Equatable {
 public struct SQLiteAgentStore {
     public init() {}
 
-    public func load(at databaseURL: URL) -> AgentSnapshot {
+    public func load(at databaseURL: URL, runtimeTitles: [String: String] = [:]) -> AgentSnapshot {
         guard let database = ReadOnlyDatabase(path: databaseURL.path) else {
             return AgentSnapshot(roots: [], diagnostics: ["SQLite data is unavailable."])
         }
@@ -69,7 +127,7 @@ public struct SQLiteAgentStore {
 
         let rows = database.threadRows(columns: columns)
         let edges = database.edgesIfAvailable()
-        let roots = AgentTree.build(rows: rows, edges: edges)
+        let roots = AgentTree.build(rows: rows, edges: edges, runtimeTitles: runtimeTitles)
         return AgentSnapshot(
             roots: roots,
             diagnostics: roots.isEmpty ? ["No sessions were active in the last 15 minutes."] : []
@@ -100,7 +158,7 @@ private struct SpawnEdge {
 }
 
 private enum AgentTree {
-    static func build(rows: [ThreadRow], edges: [SpawnEdge]) -> [AgentNode] {
+    static func build(rows: [ThreadRow], edges: [SpawnEdge], runtimeTitles: [String: String]) -> [AgentNode] {
         let rowsByID = Dictionary(uniqueKeysWithValues: rows.map { ($0.id, $0) })
         var resolvedEdges = edges.filter { rowsByID[$0.parentID] != nil && rowsByID[$0.childID] != nil }
         let linkedChildIDs = Set(resolvedEdges.map(\.childID))
@@ -128,10 +186,11 @@ private enum AgentTree {
             let children = (childrenByParent[id] ?? []).compactMap { node($0.childID, ancestors: nextAncestors) }
             guard row.isActive || !children.isEmpty else { return nil }
             let isSubagent = childIDs.contains(id)
+            let displayTitle = runtimeTitles[id] ?? row.name
             return AgentNode(
                 id: row.id,
-                name: isSubagent ? row.nickname ?? "Sub-agent" : row.name ?? "Main session",
-                activity: activity(for: row, isSubagent: isSubagent),
+                name: isSubagent ? row.nickname ?? "Sub-agent" : displayTitle ?? row.id,
+                activity: activity(for: row, displayTitle: displayTitle, isSubagent: isSubagent),
                 workspaceName: row.workspaceName,
                 workspaceKey: row.workspaceKey,
                 model: row.model,
@@ -148,8 +207,8 @@ private enum AgentTree {
         return rootIDs.compactMap { node($0, ancestors: []) }
     }
 
-    private static func activity(for row: ThreadRow, isSubagent: Bool) -> String? {
-        if let name = row.name { return name }
+    private static func activity(for row: ThreadRow, displayTitle: String?, isSubagent: Bool) -> String? {
+        if let displayTitle { return displayTitle }
         guard isSubagent, let agentPath = row.agentPath else { return nil }
 
         var task = (agentPath as NSString).lastPathComponent
@@ -244,18 +303,18 @@ private final class ReadOnlyDatabase {
 
     private func displayNameExpression(_ columns: Set<String>) -> String {
         var candidates: [String] = []
-        if columns.contains("name") { candidates.append(safeDisplayText("name")) }
-        if columns.contains("title") { candidates.append(safeDisplayText("title")) }
+        if columns.contains("name") { candidates.append(codexDisplayText("name")) }
+        if columns.contains("title") { candidates.append(codexDisplayText("title")) }
         if candidates.isEmpty { return "NULL" }
         if candidates.count == 1 { return candidates[0] }
         return "COALESCE(\(candidates.joined(separator: ", ")))"
     }
 
-    private func safeDisplayText(_ column: String) -> String {
-        let separators = [10, 11, 12, 13, 133, 8232, 8233]
-            .map { "INSTR(\(column), CHAR(\($0))) = 0" }
-            .joined(separator: " AND ")
-        return "CASE WHEN \(separators) AND LENGTH(TRIM(\(column))) BETWEEN 1 AND 80 THEN TRIM(\(column)) END"
+    private func codexDisplayText(_ column: String) -> String {
+        let trimCharacters = ([9, 10, 11, 12, 13, 32, 160, 5760] + Array(8192...8202) + [8232, 8233, 8239, 8287, 12288, 65279])
+            .map { "CHAR(\($0))" }
+            .joined(separator: " || ")
+        return "NULLIF(TRIM(\(column), \(trimCharacters)), '')"
     }
 
     private func optionalColumn(_ column: String, columns: Set<String>) -> String {

@@ -21,4 +21,6 @@ sips -z 512 512 Resources/AppIcon-1024.png --out "$iconset_path/icon_256x256@2x.
 sips -z 512 512 Resources/AppIcon-1024.png --out "$iconset_path/icon_512x512.png" >/dev/null
 cp Resources/AppIcon-1024.png "$iconset_path/icon_512x512@2x.png"
 iconutil -c icns "$iconset_path" -o "$app_path/Contents/Resources/AppIcon.icns"
+codesign --force --deep --sign - "$app_path"
+codesign --verify --deep --strict "$app_path"
 echo "$app_path"

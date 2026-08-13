@@ -53,15 +53,235 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 @MainActor
 final class MonitorModel: ObservableObject {
     @Published var snapshot = AgentSnapshot(roots: [], diagnostics: [])
+    @Published var usesRuntimeTitles = false
 
     private let store = SQLiteAgentStore()
+    private let titleSource = CodexAppServerTitleSource()
+    private var runtimeTitles: [String: String] = [:]
     private let databaseURL = FileManager.default.homeDirectoryForCurrentUser
         .appendingPathComponent(".codex/state_5.sqlite")
 
     init() { refresh() }
 
     func refresh() {
-        snapshot = store.load(at: databaseURL)
+        snapshot = store.load(at: databaseURL, runtimeTitles: runtimeTitles)
+        titleSource.refresh { [weak self] titles in
+            Task { @MainActor [weak self] in
+                guard let self else { return }
+                self.runtimeTitles = titles
+                self.usesRuntimeTitles = !titles.isEmpty
+                self.snapshot = self.store.load(at: self.databaseURL, runtimeTitles: titles)
+            }
+        }
+    }
+}
+
+private final class CodexAppServerTitleSource: @unchecked Sendable {
+    private let queue = DispatchQueue(label: "codex-agent-monitor.app-server")
+    private var process: Process?
+    private var input: Pipe?
+    private var output: Pipe?
+    private var buffer = Data()
+    private var initialized = false
+    private var requestState = AppServerRequestState()
+    private var timeoutWorkItem: DispatchWorkItem?
+    private var initializeRequestID: Int?
+    private var refreshPending = false
+    private var completion: (@Sendable ([String: String]) -> Void)?
+
+    func refresh(completion: @escaping @Sendable ([String: String]) -> Void) {
+        queue.async {
+            self.completion = completion
+            self.refreshPending = true
+            self.startIfNeeded()
+            self.requestTitlesIfReady()
+        }
+    }
+
+    deinit {
+        timeoutWorkItem?.cancel()
+        output?.fileHandleForReading.readabilityHandler = nil
+        process?.terminate()
+    }
+
+    private func startIfNeeded() {
+        guard process?.isRunning != true, let executable = executableURL() else {
+            if process?.isRunning != true { finish(with: [:]) }
+            return
+        }
+
+        let process = Process()
+        let input = Pipe()
+        let output = Pipe()
+        process.executableURL = executable
+        process.arguments = [
+            "app-server", "--listen", "stdio://",
+            "--disable", "plugins", "--disable", "remote_plugin", "--disable", "apps",
+        ]
+        process.standardInput = input
+        process.standardOutput = output
+        process.standardError = FileHandle.nullDevice
+        output.fileHandleForReading.readabilityHandler = { [weak self] handle in
+            guard let self else { return }
+            let data = handle.availableData
+            guard !data.isEmpty else { return }
+            self.queue.async { self.consume(data) }
+        }
+        let processIdentifier = ObjectIdentifier(process)
+        process.terminationHandler = { [weak self] _ in
+            guard let self else { return }
+            self.queue.async {
+                guard self.process.map({ ObjectIdentifier($0) }) == processIdentifier else { return }
+                self.failCurrentProcess(terminate: false)
+            }
+        }
+
+        do {
+            self.process = process
+            self.input = input
+            self.output = output
+            try process.run()
+            guard let requestID = requestState.startNext() else {
+                failCurrentProcess()
+                return
+            }
+            initializeRequestID = requestID
+            armTimeout(for: requestID)
+            send([
+                "id": requestID,
+                "method": "initialize",
+                "params": [
+                    "clientInfo": [
+                        "name": "codex-agent-desktop-monitor",
+                        "title": "Codex Agent Monitor",
+                        "version": "0.1.0",
+                    ],
+                    "capabilities": ["experimentalApi": true],
+                ],
+            ])
+        } catch {
+            failCurrentProcess(terminate: false)
+        }
+    }
+
+    private func requestTitlesIfReady() {
+        guard initialized, refreshPending, requestState.requestID == nil else { return }
+        refreshPending = false
+        guard let requestID = requestState.startNext() else { return }
+        armTimeout(for: requestID)
+        send([
+            "id": requestID,
+            "method": "thread/list",
+            "params": [
+                "archived": false,
+                "limit": 200,
+                "sortKey": "updated_at",
+                "sortDirection": "desc",
+                "useStateDbOnly": false,
+                "sourceKinds": [
+                    "cli", "vscode", "exec", "appServer", "subAgent", "subAgentReview",
+                    "subAgentCompact", "subAgentThreadSpawn", "subAgentOther", "unknown",
+                ],
+            ],
+        ])
+    }
+
+    private func consume(_ data: Data) {
+        buffer.append(data)
+        while let newline = buffer.firstIndex(of: 10) {
+            let line = buffer[..<newline]
+            buffer.removeSubrange(...newline)
+            guard
+                let object = try? JSONSerialization.jsonObject(with: Data(line)) as? [String: Any],
+                let id = object["id"] as? Int
+            else { continue }
+
+            if id == initializeRequestID {
+                guard requestState.finish(id) else { continue }
+                initializeRequestID = nil
+                cancelTimeout()
+                guard object["result"] != nil else {
+                    failCurrentProcess()
+                    continue
+                }
+                initialized = true
+                send(["method": "initialized"])
+                requestTitlesIfReady()
+                continue
+            }
+
+            guard requestState.finish(id) else { continue }
+            cancelTimeout()
+            refreshPending = false
+            let threads = (object["result"] as? [String: Any])?["data"] as? [[String: Any]] ?? []
+            var titles: [String: String] = [:]
+            for thread in threads {
+                guard let id = thread["id"] as? String else { continue }
+                titles[id] = CodexRuntimeTitle.resolve(
+                    threadID: id,
+                    name: thread["name"] as? String,
+                    preview: thread["preview"] as? String
+                )
+            }
+            finish(with: titles)
+        }
+    }
+
+    private func armTimeout(for requestID: Int) {
+        cancelTimeout()
+        let workItem = DispatchWorkItem { [weak self] in
+            guard let self, self.requestState.expire(requestID) else { return }
+            self.timeoutWorkItem = nil
+            self.failCurrentProcess()
+        }
+        timeoutWorkItem = workItem
+        queue.asyncAfter(deadline: .now() + 10, execute: workItem)
+    }
+
+    private func cancelTimeout() {
+        timeoutWorkItem?.cancel()
+        timeoutWorkItem = nil
+    }
+
+    private func failCurrentProcess(terminate: Bool = true) {
+        cancelTimeout()
+        requestState.reset()
+        initializeRequestID = nil
+        initialized = false
+        refreshPending = false
+        buffer.removeAll(keepingCapacity: true)
+        output?.fileHandleForReading.readabilityHandler = nil
+        let process = process
+        self.process = nil
+        input = nil
+        output = nil
+        finish(with: [:])
+        if terminate, process?.isRunning == true { process?.terminate() }
+    }
+
+    private func finish(with titles: [String: String]) {
+        let completion = completion
+        self.completion = nil
+        completion?(titles)
+    }
+
+    private func send(_ object: [String: Any]) {
+        guard var data = try? JSONSerialization.data(withJSONObject: object) else { return }
+        data.append(10)
+        try? input?.fileHandleForWriting.write(contentsOf: data)
+    }
+
+    private func executableURL() -> URL? {
+        let home = FileManager.default.homeDirectoryForCurrentUser.path
+        return [
+            "/Applications/ChatGPT.app/Contents/Resources/codex",
+            "/Applications/Codex.app/Contents/Resources/codex",
+            "\(home)/.local/bin/codex",
+            "/opt/homebrew/bin/codex",
+            "/usr/local/bin/codex",
+        ]
+        .first { FileManager.default.isExecutableFile(atPath: $0) }
+        .map(URL.init(fileURLWithPath:))
     }
 }
 
@@ -82,11 +302,17 @@ private enum Theme {
             : NSColor(calibratedRed: 0.93, green: 0.945, blue: 0.945, alpha: 1)
     })
     static let card = Color(nsColor: .controlBackgroundColor)
+    static let elevated = Color(nsColor: NSColor(name: nil) { appearance in
+        appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
+            ? NSColor(calibratedWhite: 0.17, alpha: 1)
+            : NSColor.white
+    })
 }
 
 @MainActor
 private struct ContentView: View {
     @ObservedObject var monitor: MonitorModel
+    @State private var selectedSessionID: String?
     private let refreshTimer = Timer.publish(every: 5, on: .main, in: .common).autoconnect()
 
     var body: some View {
@@ -97,17 +323,19 @@ private struct ContentView: View {
             if monitor.snapshot.roots.isEmpty {
                 EmptyState(message: monitor.snapshot.diagnostics.first ?? "Codex may be offline.")
             } else {
-                HStack(spacing: 0) {
-                    WorkspaceSidebar(workspaces: monitor.snapshot.workspaces)
-                    Divider()
-                    SessionList(workspaces: monitor.snapshot.workspaces)
+                GeometryReader { geometry in
+                    responsiveContent(
+                        mode: MonitorPanelLayout.mode(forWidth: Double(geometry.size.width))
+                    )
                 }
             }
 
             Divider()
             HStack(spacing: 7) {
                 Circle().fill(Theme.green).frame(width: 6, height: 6)
-                Text("SQLite read-only · observed/inferred activity · refreshes every 5s")
+                Text(monitor.usesRuntimeTitles
+                    ? "Codex app-server titles · SQLite runtime metadata · refreshes every 5s"
+                    : "SQLite fallback · observed/inferred activity · refreshes every 5s")
                 Spacer()
             }
             .font(.caption2)
@@ -120,6 +348,44 @@ private struct ContentView: View {
         .frame(minWidth: 560, minHeight: 420)
         .onReceive(refreshTimer) { _ in monitor.refresh() }
     }
+
+    @ViewBuilder
+    private func responsiveContent(mode: MonitorPanelMode) -> some View {
+        switch mode {
+        case .compact:
+            SessionGrid(workspaces: monitor.snapshot.workspaces, compact: true)
+        case .overview:
+            HStack(spacing: 0) {
+                WorkspaceSidebar(workspaces: monitor.snapshot.workspaces)
+                Divider()
+                SessionGrid(workspaces: monitor.snapshot.workspaces, compact: false)
+            }
+        case .inspector:
+            HStack(spacing: 0) {
+                WorkspaceSidebar(workspaces: monitor.snapshot.workspaces)
+                Divider()
+                SessionRail(
+                    workspaces: monitor.snapshot.workspaces,
+                    selectedID: effectiveSelectedSession?.id,
+                    select: { selectedSessionID = $0 }
+                )
+                Divider()
+                SessionInspector(session: effectiveSelectedSession)
+            }
+        }
+    }
+
+    private var allSessions: [AgentNode] {
+        monitor.snapshot.workspaces.flatMap(\.sessions)
+    }
+
+    private var effectiveSelectedSession: AgentNode? {
+        let resolvedID = MonitorPanelLayout.resolvedSelection(
+            preferredID: selectedSessionID,
+            availableIDs: allSessions.map(\.id)
+        )
+        return allSessions.first { $0.id == resolvedID }
+    }
 }
 
 @MainActor
@@ -129,10 +395,16 @@ private struct AppHeader: View {
 
     var body: some View {
         HStack(spacing: 11) {
-            Image(nsImage: NSApp.applicationIconImage)
-                .resizable()
-                .scaledToFit()
-                .frame(width: 32, height: 32)
+            ZStack {
+                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                    .fill(Theme.elevated)
+                    .shadow(color: .black.opacity(0.08), radius: 5, y: 2)
+                Image(nsImage: NSApp.applicationIconImage)
+                    .resizable()
+                    .scaledToFit()
+                    .padding(3)
+            }
+            .frame(width: 36, height: 36)
 
             VStack(alignment: .leading, spacing: 1) {
                 Text("Agent Sessions")
@@ -145,6 +417,17 @@ private struct AppHeader: View {
 
             Spacer()
 
+            HStack(spacing: 6) {
+                Circle().fill(Theme.green).frame(width: 6, height: 6)
+                Text("LIVE")
+                    .font(.system(size: 9, weight: .bold, design: .rounded))
+                    .tracking(0.8)
+            }
+            .foregroundStyle(Theme.green)
+            .padding(.horizontal, 9)
+            .padding(.vertical, 6)
+            .background(Theme.green.opacity(0.09), in: Capsule())
+
             Button(action: refresh) {
                 Image(systemName: "arrow.clockwise")
                     .font(.system(size: 13, weight: .semibold))
@@ -155,8 +438,8 @@ private struct AppHeader: View {
             .help("Refresh now")
             .accessibilityLabel("Refresh sessions")
         }
-        .padding(.horizontal, 16)
-        .frame(height: 58)
+        .padding(.horizontal, 18)
+        .frame(height: 64)
         .background(.bar)
     }
 
@@ -264,17 +547,18 @@ private struct StatusSummary: View {
 }
 
 @MainActor
-private struct SessionList: View {
+private struct SessionGrid: View {
     let workspaces: [WorkspaceGroup]
+    let compact: Bool
 
     var body: some View {
         ScrollView {
             LazyVStack(alignment: .leading, spacing: 22) {
                 ForEach(workspaces) { workspace in
-                    WorkspaceSection(workspace: workspace)
+                    WorkspaceSection(workspace: workspace, compact: compact)
                 }
             }
-            .padding(18)
+            .padding(compact ? 14 : 20)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Theme.canvas)
@@ -284,6 +568,7 @@ private struct SessionList: View {
 @MainActor
 private struct WorkspaceSection: View {
     let workspace: WorkspaceGroup
+    let compact: Bool
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -300,8 +585,265 @@ private struct WorkspaceSection: View {
                 Spacer()
             }
 
-            ForEach(workspace.sessions) { SessionCard(session: $0) }
+            LazyVGrid(
+                columns: compact
+                    ? [GridItem(.flexible())]
+                    : [GridItem(.adaptive(minimum: 330, maximum: 520), spacing: 16, alignment: .top)],
+                alignment: .leading,
+                spacing: 16
+            ) {
+                ForEach(workspace.sessions) { session in
+                    SessionCard(session: session)
+                        .frame(maxWidth: .infinity, alignment: .topLeading)
+                }
+            }
         }
+    }
+}
+
+@MainActor
+private struct SessionRail: View {
+    let workspaces: [WorkspaceGroup]
+    let selectedID: String?
+    let select: (String) -> Void
+
+    var body: some View {
+        ScrollView {
+            LazyVStack(alignment: .leading, spacing: 20) {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("RUNNING NOW")
+                        .font(.system(size: 10, weight: .bold, design: .rounded))
+                        .tracking(1.4)
+                        .foregroundStyle(Theme.coral)
+                    Text("Select a session to inspect its delegation tree.")
+                        .font(.system(size: 11))
+                        .foregroundStyle(.secondary)
+                }
+
+                ForEach(workspaces) { workspace in
+                    VStack(alignment: .leading, spacing: 8) {
+                        HStack {
+                            Text(workspace.name)
+                                .font(.system(size: 11, weight: .semibold, design: .rounded))
+                                .lineLimit(1)
+                            Spacer()
+                            Text("\(workspace.sessions.count)")
+                                .font(.caption2.monospacedDigit())
+                                .foregroundStyle(.secondary)
+                        }
+
+                        ForEach(workspace.sessions) { session in
+                            Button { select(session.id) } label: {
+                                SessionRailCard(session: session, selected: selectedID == session.id)
+                            }
+                            .buttonStyle(.plain)
+                            .accessibilityLabel("Inspect \(session.name)")
+                        }
+                    }
+                }
+            }
+            .padding(16)
+        }
+        .frame(width: 356)
+        .background(Theme.canvas)
+    }
+}
+
+@MainActor
+private struct SessionRailCard: View {
+    let session: AgentNode
+    let selected: Bool
+
+    var body: some View {
+        HStack(spacing: 11) {
+            RoundedRectangle(cornerRadius: 3, style: .continuous)
+                .fill(selected ? Theme.coral : (session.isActive ? Theme.green : Theme.orange))
+                .frame(width: 4)
+
+            VStack(alignment: .leading, spacing: 7) {
+                HStack(alignment: .firstTextBaseline) {
+                    Text(session.currentActivity ?? session.name)
+                        .font(.system(size: 12, weight: .semibold))
+                        .lineLimit(2)
+                    Spacer(minLength: 6)
+                    Circle()
+                        .fill(session.isActive ? Theme.green : Theme.orange)
+                        .frame(width: 7, height: 7)
+                }
+
+                HStack(spacing: 7) {
+                    Text(session.model)
+                    Text("·")
+                    Text(session.reasoningEffort)
+                    Spacer(minLength: 4)
+                    Label("\(descendants(of: session))", systemImage: "point.3.connected.trianglepath.dotted")
+                }
+                .font(.system(size: 9, weight: .medium, design: .monospaced))
+                .foregroundStyle(.secondary)
+                .lineLimit(1)
+            }
+        }
+        .padding(11)
+        .frame(maxWidth: .infinity, minHeight: 74, alignment: .leading)
+        .background(
+            selected ? Theme.elevated : Theme.elevated.opacity(0.55),
+            in: RoundedRectangle(cornerRadius: 12, style: .continuous)
+        )
+        .overlay {
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .stroke(selected ? Theme.coral.opacity(0.42) : Color.primary.opacity(0.06), lineWidth: 1)
+        }
+        .shadow(color: selected ? Theme.coral.opacity(0.08) : .clear, radius: 10, y: 4)
+    }
+}
+
+@MainActor
+private struct SessionInspector: View {
+    let session: AgentNode?
+
+    var body: some View {
+        ZStack {
+            LinearGradient(
+                colors: [Theme.sea.opacity(0.045), Theme.canvas, Theme.coral.opacity(0.025)],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+
+            if let session {
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 22) {
+                        HStack(alignment: .top) {
+                            VStack(alignment: .leading, spacing: 7) {
+                                Text("SESSION INSPECTOR")
+                                    .font(.system(size: 10, weight: .bold, design: .rounded))
+                                    .tracking(1.5)
+                                    .foregroundStyle(Theme.sea)
+                                Text(session.currentActivity ?? session.name)
+                                    .font(.system(size: 24, weight: .semibold, design: .rounded))
+                                    .lineLimit(3)
+                                Text("\(session.workspaceName) · \(shortSessionID(session.id))")
+                                    .font(.system(size: 10, design: .monospaced))
+                                    .foregroundStyle(.secondary)
+                            }
+                            Spacer(minLength: 16)
+                            StatusPill(isActive: session.isActive)
+                        }
+
+                        HStack(spacing: 10) {
+                            InspectorMetric(
+                                label: "AGENTS",
+                                value: "\(descendants(of: session) + 1)",
+                                symbol: "point.3.connected.trianglepath.dotted",
+                                tint: Theme.sea
+                            )
+                            InspectorMetric(
+                                label: "ACTIVE NOW",
+                                value: "\(activeAgentCount(session))",
+                                symbol: "waveform.path.ecg",
+                                tint: Theme.green
+                            )
+                            InspectorMetric(
+                                label: "TOKENS",
+                                value: tokenSummary(session),
+                                symbol: "sum",
+                                tint: Theme.coral
+                            )
+                        }
+
+                        VStack(alignment: .leading, spacing: 10) {
+                            Text("LIVE AGENT TREE")
+                                .font(.system(size: 10, weight: .bold, design: .rounded))
+                                .tracking(1.4)
+                                .foregroundStyle(.tertiary)
+                            AgentTreeDetail(session: session)
+                        }
+                    }
+                    .padding(24)
+                    .frame(maxWidth: 780, alignment: .leading)
+                    .frame(maxWidth: .infinity, alignment: .topLeading)
+                }
+            }
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+}
+
+@MainActor
+private struct InspectorMetric: View {
+    let label: String
+    let value: String
+    let symbol: String
+    let tint: Color
+
+    var body: some View {
+        HStack(spacing: 10) {
+            Image(systemName: symbol)
+                .font(.system(size: 14, weight: .semibold))
+                .foregroundStyle(tint)
+                .frame(width: 28, height: 28)
+                .background(tint.opacity(0.09), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+            VStack(alignment: .leading, spacing: 1) {
+                Text(label)
+                    .font(.system(size: 8, weight: .bold, design: .rounded))
+                    .tracking(0.8)
+                    .foregroundStyle(.tertiary)
+                Text(value)
+                    .font(.system(size: 13, weight: .semibold, design: .monospaced))
+                    .lineLimit(1)
+            }
+            Spacer(minLength: 0)
+        }
+        .padding(11)
+        .frame(maxWidth: .infinity, minHeight: 58)
+        .background(Theme.elevated.opacity(0.78), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .stroke(Color.primary.opacity(0.06), lineWidth: 1)
+        }
+    }
+}
+
+@MainActor
+private struct AgentTreeDetail: View {
+    let session: AgentNode
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(alignment: .top, spacing: 10) {
+                Circle()
+                    .fill(session.isActive ? Theme.green : Theme.orange)
+                    .frame(width: 10, height: 10)
+                    .padding(.top, 5)
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("MAIN AGENT")
+                        .font(.system(size: 8, weight: .bold, design: .rounded))
+                        .tracking(0.8)
+                        .foregroundStyle(Theme.coral)
+                    Text(session.name)
+                        .font(.system(size: 14, weight: .semibold))
+                }
+                Spacer()
+                StatusPill(isActive: session.isActive, compact: true)
+            }
+
+            AgentActivityLine(
+                activity: session.currentActivity ?? (session.isActive ? "Task details unavailable" : "Context retained for active child"),
+                unavailable: session.currentActivity == nil
+            )
+            RuntimeLine(agent: session)
+
+            if !session.children.isEmpty {
+                Divider()
+                ForEach(session.children) { SubagentRow(agent: $0, depth: 0) }
+            }
+        }
+        .padding(16)
+        .background(Theme.elevated, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .stroke(Color.primary.opacity(0.075), lineWidth: 1)
+        }
+        .shadow(color: .black.opacity(0.045), radius: 12, y: 4)
     }
 }
 
@@ -322,14 +864,12 @@ private struct SessionCard: View {
                         .font(.system(size: 8, weight: .bold, design: .rounded))
                         .tracking(0.7)
                         .foregroundStyle(Theme.coral)
-                    Text(session.currentActivity ?? sessionTitle)
+                    Text(session.currentActivity ?? session.name)
                         .font(.system(size: 15, weight: .semibold))
                         .lineLimit(2)
-                    if session.name != "Main session" {
-                        Text(shortSessionID(session.id))
-                            .font(.caption2.monospaced())
-                            .foregroundStyle(.tertiary)
-                    }
+                    Text(shortSessionID(session.id))
+                        .font(.caption2.monospaced())
+                        .foregroundStyle(.tertiary)
                 }
 
                 Spacer(minLength: 8)
@@ -352,10 +892,6 @@ private struct SessionCard: View {
                 .stroke(Color.primary.opacity(0.075), lineWidth: 1)
         }
         .shadow(color: .black.opacity(0.045), radius: 9, y: 3)
-    }
-
-    private var sessionTitle: String {
-        session.name == "Main session" ? "Session \(shortSessionID(session.id))" : session.name
     }
 
     private var sessionHeaderLabel: String {
@@ -519,6 +1055,19 @@ private func descendantCount(in workspace: WorkspaceGroup) -> Int {
 
 private func descendants(of agent: AgentNode) -> Int {
     agent.children.reduce(agent.children.count) { $0 + descendants(of: $1) }
+}
+
+private func activeAgentCount(_ agent: AgentNode) -> Int {
+    (agent.isActive ? 1 : 0) + agent.children.reduce(0) { $0 + activeAgentCount($1) }
+}
+
+private func tokenSummary(_ agent: AgentNode) -> String {
+    let total = (agent.tokensUsed ?? 0) + agent.children.reduce(0) { $0 + tokenTotal($1) }
+    return total == 0 ? "—" : total.formatted(.number.notation(.compactName))
+}
+
+private func tokenTotal(_ agent: AgentNode) -> Int {
+    (agent.tokensUsed ?? 0) + agent.children.reduce(0) { $0 + tokenTotal($1) }
 }
 
 private func shortSessionID(_ id: String) -> String {
