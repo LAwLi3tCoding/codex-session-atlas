@@ -9,7 +9,7 @@ jobs:
   checks:
     runs-on: macos-15
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7.0.1
         with:
           persist-credentials: false
       - run: swift --version
@@ -18,7 +18,7 @@ jobs:
       - run: bash -n Scripts/install.sh && zsh -n Scripts/make-app.sh
       - run: Scripts/make-app.sh --universal
       - run: bash Scripts/check-installer.sh build/*-macos-universal.zip
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7.0.1
         with:
           name: macos-universal
           path: |
