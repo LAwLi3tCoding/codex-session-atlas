@@ -41,10 +41,11 @@ public struct ContextMaterial: Identifiable, Sendable, Equatable {
     public var source: SourceReference
     public var fromReplacement: Bool
     public var readable: Bool
+    public var titleArgumentIsAppText = false
     public var event: TraceEvent {
         TraceEvent(id: id, threadID: source.threadID ?? "", turnID: "", timestamp: timestamp,
             kind: category == .summary ? .compaction : .unknown, title: title, preview: preview,
-            status: "recorded", source: source)
+            status: "recorded", source: source, previewIsAppText: !readable)
     }
 }
 
@@ -231,13 +232,13 @@ public actor ContextExplorer {
             if let callID = item["call_id"] as? String { calls[callID] = name }
             let key = item["arguments"] == nil ? "input" : "arguments"
             add(category: .toolCall, title: "调用 · \(shortTool(name))", text: ObservationParser.json(item[key]),
-                reference: reference, pointer: pointer + [key], time: time, replacement: replacement)
+                reference: reference, pointer: pointer + [key], time: time, replacement: replacement, titleArgumentIsAppText: toolHasAlias(name))
         case "function_call_output", "custom_tool_call_output":
             let name = calls[item["call_id"] as? String ?? ""] ?? "工具"
             let output = ObservationParser.text(item["output"])
             add(category: .toolResult, title: "返回 · \(shortTool(name))",
                 text: output.isEmpty ? ObservationParser.json(item["output"]) : output,
-                reference: reference, pointer: pointer + ["output"], time: time, replacement: replacement)
+                reference: reference, pointer: pointer + ["output"], time: time, replacement: replacement, titleArgumentIsAppText: toolHasAlias(name))
         case "compaction":
             let text = ObservationParser.text(item["summary"] ?? item["text"])
             add(category: .summary, title: "压缩后保留的摘要", text: text,
@@ -250,14 +251,14 @@ public actor ContextExplorer {
     }
 
     private func add(category: ContextCategory, title: String, text: String, reference: SourceReference,
-                     pointer: [String], time: Date, replacement: Bool, opaque: String? = nil) {
+                     pointer: [String], time: Date, replacement: Bool, opaque: String? = nil, titleArgumentIsAppText: Bool = false) {
         guard materialCount < 20_000 else { return }
         var ref = reference; ref.jsonPointer = pointer
         history.phases[history.phases.count - 1].materials.append(ContextMaterial(
             id: "\(reference.offset ?? 0):\(pointer.joined(separator: "/"))", category: category,
             title: title, preview: opaque ?? ObservationParser.summary(text, limit: 280),
             characters: opaque == nil ? text.count : 0, timestamp: time, recordOffset: reference.offset ?? 0,
-            source: ref, fromReplacement: replacement, readable: opaque == nil))
+            source: ref, fromReplacement: replacement, readable: opaque == nil, titleArgumentIsAppText: titleArgumentIsAppText))
         materialCount += 1
     }
 
@@ -279,6 +280,10 @@ public actor ContextExplorer {
         let first = text.split(separator: "\n").first.map(String.init) ?? "用户输入"
         return (.user, ObservationParser.summary(first, limit: 65))
     }
+    private func toolHasAlias(_ name: String) -> Bool {
+        name.contains("exec_command") || name.contains("apply_patch") || name.contains("web")
+            || name == "exec" || name.hasSuffix(".exec") || name == "js" || name.hasSuffix("__js")
+    }
     private func shortTool(_ name: String) -> String {
         if name.contains("exec_command") { return "终端命令" }
         if name.contains("apply_patch") { return "文件修改" }
@@ -286,5 +291,20 @@ public actor ContextExplorer {
         if name == "exec" || name.hasSuffix(".exec") { return "工具执行" }
         if name == "js" || name.hasSuffix("__js") { return "应用界面操作" }
         return String(name.split(separator: ".").last ?? Substring(name))
+    }
+}
+
+extension ContextMaterial {
+    public func localizedTitle(language: AppLanguage = .current) -> String {
+        if category == .user { return L("用户输入", language: language) }
+        if titleArgumentIsAppText, let separator = title.range(of: " · ") {
+            let prefix = String(title[..<separator.upperBound])
+            let argument = String(title[separator.upperBound...])
+            return L(prefix + "{tool}", language: language).replacingOccurrences(of: "{tool}", with: L(argument, language: language))
+        }
+        return L(title, language: language)
+    }
+    public func localizedPreview(language: AppLanguage = .current) -> String {
+        readable ? preview : L(preview, language: language)
     }
 }

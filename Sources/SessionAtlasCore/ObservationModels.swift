@@ -103,6 +103,9 @@ public struct TraceEvent: Identifiable, Codable, Sendable, Equatable {
     public var fingerprint: String?
     public var readOnly = false
     public var isPolling = false
+    // Source text must stay verbatim even when it matches an app label.
+    public var titleIsSource = false
+    public var previewIsAppText = false
     public var failed: Bool { status == "failed" || status == "error" || status == "declined" }
 }
 
@@ -154,6 +157,7 @@ public struct AttentionItem: Identifiable, Codable, Sendable, Equatable {
     public var definite: Bool
     public var resolved = false
     public var seen = false
+    public var explanationIsSource = false
 }
 
 public struct RuleSettings: Codable, Sendable, Equatable {
@@ -225,4 +229,24 @@ public struct SessionObservation: Sendable {
     public var historyComplete = false
     public var note: String?
     public init() {}
+}
+
+public struct RecordDetail: Sendable {
+    public var text: String
+    public var hasMore: Bool
+    public init(text: String, hasMore: Bool = false) { self.text = text; self.hasMore = hasMore }
+}
+
+extension TraceEvent {
+    public func localizedTitle(language: AppLanguage = .current) -> String {
+        titleIsSource ? title : L(title, language: language)
+    }
+    public func localizedPreview(language: AppLanguage = .current) -> String {
+        previewIsAppText ? L(preview, language: language) : preview
+    }
+}
+extension AttentionItem {
+    public func localizedExplanation(language: AppLanguage = .current) -> String {
+        explanationIsSource ? explanation : L(explanation, language: language)
+    }
 }

@@ -9,7 +9,7 @@
 - A universal ZIP release needs no compiler, package manager, API key, or extra account.
 - Building from source needs Swift 6.1+ and Xcode or compatible Command Line Tools. Check `swift --version`; an older toolchain must be updated before building.
 
-The UI is currently Simplified Chinese. English explanations and a UI label glossary are in the [user guide](usage.md).
+The app supports English and Simplified Chinese. Use **Settings → Language / 语言** to switch immediately; the choice is remembered. See the [user guide](usage.md#choose-a-language).
 
 ## Option 1: download the application
 
@@ -21,7 +21,7 @@ The UI is currently Simplified Chinese. English explanations and a UI label glos
 For an optional manual integrity check, download the matching `.zip.sha256` beside the ZIP, switch to that folder, and run:
 
 ```bash
-shasum -a 256 -c Codex-Session-Atlas-0.8.0-macos-universal.zip.sha256
+shasum -a 256 -c Codex-Session-Atlas-0.9.0-macos-universal.zip.sha256
 ```
 
 Use the filenames for the version you downloaded. The expected output ends in `OK`.
@@ -39,7 +39,7 @@ Optional arguments:
 
 ```bash
 # Pin a version and leave it closed after installation.
-bash /tmp/codex-session-atlas-install.sh --version v0.8.0 --no-open
+bash /tmp/codex-session-atlas-install.sh --version v0.9.0 --no-open
 
 # Use another writable absolute directory.
 bash /tmp/codex-session-atlas-install.sh --dir "$HOME/Applications"

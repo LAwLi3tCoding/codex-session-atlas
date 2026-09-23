@@ -86,9 +86,10 @@ private struct MonitorButtonBody: View {
 }
 
 struct CategoryBadge: View {
+    @AppStorage(AppLanguage.preferenceKey) private var language = AppLanguage.system
     let category: ContextCategory
     var body: some View {
-        Label(category.label, systemImage: MonitorStyle.symbol(category))
+        Label(L(category.label, language: language), systemImage: MonitorStyle.symbol(category))
             .font(.system(size: 11, weight: .semibold))
             .foregroundStyle(MonitorStyle.category(category))
             .padding(.vertical, 3)
@@ -110,12 +111,13 @@ struct MonitorPanel<Content: View>: View {
 }
 
 struct MonitorBadge: View {
+    @AppStorage(AppLanguage.preferenceKey) private var language = AppLanguage.system
     let text: String
     var color: Color = MonitorStyle.secondary
     var body: some View {
         HStack(spacing: 5) {
             Circle().fill(color).frame(width: 5, height: 5)
-            Text(text).font(.system(size: 11, weight: .medium))
+            Text(L(text, language: language)).font(.system(size: 11, weight: .medium))
         }.foregroundStyle(color).padding(.vertical, 4)
     }
 }
@@ -129,10 +131,10 @@ extension View {
 }
 
 func clockLabel(_ date: Date) -> String {
-    date.formatted(.dateTime.hour().minute().second().locale(Locale(identifier: "zh_CN")))
+    date.formatted(.dateTime.hour().minute().second().locale(AppLanguage.current.locale))
 }
 func timestampLabel(_ date: Date) -> String {
-    date.formatted(.dateTime.month().day().hour().minute().second().locale(Locale(identifier: "zh_CN")))
+    date.formatted(.dateTime.month().day().hour().minute().second().locale(AppLanguage.current.locale))
 }
 func percentLabel(_ count: Int, total: Int) -> String {
     guard total > 0 else { return "—" }
@@ -140,19 +142,19 @@ func percentLabel(_ count: Int, total: Int) -> String {
     return value > 0 && value < 0.1 ? "<0.1%" : String(format: "%.1f%%", value)
 }
 func ageLabel(_ date: Date?) -> String {
-    guard let date else { return "尚无事件记录" }
+    guard let date else { return L("尚无事件记录") }
     let seconds = max(0, Int(Date().timeIntervalSince(date)))
-    if seconds < 60 { return "\(seconds) 秒前" }
-    if seconds < 3600 { return "\(seconds / 60) 分钟前" }
-    if seconds < 86400 { return "\(seconds / 3600) 小时前" }
-    return "\(seconds / 86400) 天前"
+    if seconds < 60 { return L("\(seconds) 秒前") }
+    if seconds < 3600 { return L("\(seconds / 60) 分钟前") }
+    if seconds < 86400 { return L("\(seconds / 3600) 小时前") }
+    return L("\(seconds / 86400) 天前")
 }
 func characterLabel(_ count: Int) -> String {
-    count >= 10_000 ? String(format: "%.1f 万字符", Double(count) / 10_000) : "\(count.formatted()) 字符"
+    L("\(count.formatted(.number.locale(AppLanguage.current.locale))) 字符")
 }
 func friendlyTool(_ event: TraceEvent) -> String {
-    if event.title == "js" || event.title == "调用请求 · js" { return "查看或操作应用界面" }
-    if event.title == "exec" || event.title == "调用请求 · exec" { return "执行一组工具操作" }
-    if event.title == "命令执行" { return "运行终端命令" }
-    return event.title
+    if event.title == "js" || event.title == "调用请求 · js" { return L("查看或操作应用界面") }
+    if event.title == "exec" || event.title == "调用请求 · exec" { return L("执行一组工具操作") }
+    if !event.titleIsSource && event.title == "命令执行" { return L("运行终端命令") }
+    return event.localizedTitle()
 }

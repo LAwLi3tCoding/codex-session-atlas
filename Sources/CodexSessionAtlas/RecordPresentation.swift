@@ -33,9 +33,9 @@ struct RecordExcerpt {
                     return
                 }
             }
-            if text.contains("\"code\"") { text = "执行脚本，展开查看代码与参数。" }
-            else if text.contains("\"cmd\"") || text.contains("\"command\"") { text = "终端命令，展开查看命令与参数。" }
-            else { text = "结构化内容，展开查看完整记录。" }
+            if text.contains("\"code\"") { text = L("执行脚本，展开查看代码与参数。") }
+            else if text.contains("\"cmd\"") || text.contains("\"command\"") { text = L("终端命令，展开查看命令与参数。") }
+            else { text = L("结构化内容，展开查看完整记录。") }
         }
         let readable = text.replacingOccurrences(of: #"(?m)^</?[A-Za-z_][^>]*>\s*$"#, with: "", options: .regularExpression)
             .replacingOccurrences(of: #"(?m)^#{1,6}\s+"#, with: "", options: .regularExpression)
@@ -49,6 +49,7 @@ import SessionAtlasCore
 import SwiftUI
 
 struct MonitorRecordLabel: View {
+    @AppStorage(AppLanguage.preferenceKey) private var language = AppLanguage.system
     let title: String
     let preview: String
     let category: ContextCategory
@@ -68,8 +69,8 @@ struct MonitorRecordLabel: View {
                 .background(MonitorStyle.category(category).opacity(0.07), in: RoundedRectangle(cornerRadius: 8))
             VStack(alignment: .leading, spacing: 7) {
                 HStack(spacing: 7) {
-                    Text(label).foregroundStyle(MonitorStyle.category(category))
-                    if failed { Label("失败", systemImage: "exclamationmark.circle.fill").foregroundStyle(.red) }
+                    Text(L(label, language: language)).foregroundStyle(MonitorStyle.category(category))
+                    if failed { Label(L("失败"), systemImage: "exclamationmark.circle.fill").foregroundStyle(.red) }
                     Spacer(minLength: 10)
                     Text(clockLabel(timestamp)).monospacedDigit().foregroundStyle(MonitorStyle.secondary)
                     Image(systemName: "chevron.right").font(.system(size: 9)).foregroundStyle(MonitorStyle.secondary)

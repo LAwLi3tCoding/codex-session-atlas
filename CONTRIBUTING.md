@@ -1,8 +1,8 @@
 # Contributing / 参与贡献
 
-Thank you for helping make local Codex sessions easier to understand. Useful contributions include format compatibility, synthetic regression cases, clearer explanations, performance fixes, accessibility, and an English UI.
+Thank you for helping make local Codex sessions easier to understand. Useful contributions include format compatibility, synthetic regression cases, clearer explanations, performance fixes, accessibility, and clearer English/Chinese translations.
 
-欢迎改进格式兼容、合成回归用例、内容解释、性能、可访问性和英文界面。请优先描述实际遇到的问题与可验证结果。
+欢迎改进格式兼容、合成回归用例、内容解释、性能、可访问性和中英文文案。请优先描述实际遇到的问题与可验证结果。
 
 ## Development
 
@@ -19,6 +19,12 @@ Scripts/make-app.sh --universal
 ```
 
 Tests do not require XCTest or access to personal Codex sessions. For a visible UI change, also inspect the app on macOS; a successful build alone does not validate layout. For parsing changes, add the smallest synthetic source record that demonstrates the issue and expected behavior.
+
+## Localization
+
+App-owned canonical copy and English translations live in `Sources/SessionAtlasCore/LocalizationCatalog.swift`. Use `L(...)` only for app-owned display text. Preserve every `{0}`, `{1}`, … placeholder and its source value. Keep filter/state identifiers independent of display language. Session text and tool output must remain verbatim; parser provenance flags distinguish them from generated copy, including cached records.
+
+When changing UI, verify both languages, long English labels, an open detail sheet, and switching with an active filter. Add regression coverage when introducing a new source/generated-text boundary. The observation checks validate catalog placeholders, raw-evidence preservation, cached localization and language-independent detail pagination.
 
 ## Pull requests
 

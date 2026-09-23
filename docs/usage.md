@@ -4,28 +4,36 @@
 
 ## Start with a question
 
-Use **Overview** to find an issue, **Trace** to inspect what happened, **Context** to inspect recorded materials, and **Collaboration** to follow child tasks. Session Atlas observes persisted evidence; make changes in Codex or your project.
+Use **Overview** to find an issue, **Trace** to inspect what happened, **Context** to inspect recorded materials, and **Agents** to follow child tasks. Session Atlas observes persisted evidence; make changes in Codex or your project.
 
-The current interface is in Chinese:
+## Choose a language
 
-| UI label | Meaning |
+Open the sidebar **Settings** button, or press **⌘,**. Under **Language / 语言**, choose **System default**, **简体中文**, or **English**. You can also use **Codex Session Atlas → Language / 语言** in the menu bar, including while a detail sheet is open. The choice takes effect immediately and is remembered after quitting. System default uses Simplified Chinese for a Chinese system language and English otherwise.
+
+Language changes cover navigation, filters, context categories, attention explanations, record controls, loading/error messages, notifications, app menus, dates and number formatting. The selected task, page, filters and historical checkpoint remain selected. A detail page already open is refreshed in the chosen language.
+
+Task titles, user and agent messages, tool names/arguments/output, error evidence, source paths and raw JSON keys remain as recorded. English UI can therefore contain Chinese session content, and vice versa. macOS permission dialogs follow the system language.
+
+Upgrading from a version before 0.9 may rebuild the monitor's parsed checkpoints once, to distinguish generated labels from source text. Codex source records, seen markers and collected usage history are retained.
+
+| English UI | 简体中文 |
 | --- | --- |
-| 概览 / 上下文 / 轨迹 / 协作 | Overview / Context / Trace / Collaboration |
-| 全部 / 最近活跃 / 需关注 | All / Recently active / Needs attention |
-| 内容明细 / 查看内容 | Material details / View content |
-| 在 Codex 打开 / 我已看过 | Open in Codex / Mark as seen |
-| 首次压缩前 / 第 N 次压缩后 | Before first compaction / After compaction N |
-| 已记录内容的文本占比 | Composition of recorded readable text |
+| Overview / Context / Trace / Agents | 概览 / 上下文 / 轨迹 / 协作 |
+| All / Active / Attention | 全部 / 最近活跃 / 需关注 |
+| Content details / Raw record | 内容明细 / 原始记录 |
+| Open in Codex / Mark as seen | 在 Codex 打开 / 我已看过 |
+| Before first compaction / After compaction N | 首次压缩前 / 第 N 次压缩后 |
+| Recorded text share | 已记录内容的文本占比 |
 
 ## Find and sort tasks
 
 Search matches the task title, project path, model, agent nickname, or task ID. Use the project menu to narrow the list. The top-right list menu exposes system/archived tasks and the **Sort / 排序** selector.
 
-- **Latest activity / 最近活动 (default):** newest first. A parent row uses the newest activity in its visible descendant group, even when collapsed. The row's time and the sorting time are the same.
+- **Recent activity / 最近活动 (default):** newest first. A parent row uses the newest activity in its visible descendant group, even when collapsed. The row's time and the sorting time are the same.
 - **Attention first / 需关注优先:** groups with unseen, unresolved attention items first, then latest activity. A child's attention item counts for its parent group.
 - Individual activity uses the latest known execution event or turn start; until either is available, it falls back to catalog recency. Equal timestamps use a stable task-ID tie-breaker.
 - Group aggregation is within the current filter/search result and the ancestors included to show its hierarchy. Filtering can therefore change a group's time.
-- Parent tasks added only to show an active child's location say **Contains active child / 含活跃子任务**. That label is not evidence the parent itself is executing.
+- Parent tasks added only to show an active child's location say **Has active child tasks / 含活跃子任务**. That label is not evidence the parent itself is executing.
 
 The chosen sorting mode persists. Orange attention dots no longer move an old task ahead of recent tasks unless attention-first order is selected.
 
@@ -33,7 +41,7 @@ The chosen sorting mode persists. Orange attention dots no longer move an old ta
 
 | State | Interpretation |
 | --- | --- |
-| 最近活跃 — Recently active | Unfinished turn; execution/start evidence within five minutes; excludes archived tasks from the active filter |
+| 最近活跃 — Active | Unfinished turn; execution/start evidence within five minutes; excludes archived tasks from the active filter |
 | 等待用户 — Waiting for input | A recorded waiting state; open the original task to act |
 | 状态待确认 — Status unconfirmed | Last known state was running, but recent execution evidence is missing |
 | 本轮结束 — Turn ended | The recorded turn ended; the wider user goal may still be incomplete |
@@ -60,8 +68,8 @@ The overview shows the latest recorded action, context usage, attention items, a
 
 1. Choose **Before first compaction** or an **After compaction N** phase. Never assume the earlier phase's materials still exist in a later one.
 2. Select a recorded checkpoint using the chart or previous/next sample controls. Read the timestamp with the usage value.
-3. Check **Context usage / 上下文使用率**: recorded used tokens divided by known capacity.
-4. Read **Recorded text composition / 已记录内容的文本占比**. The colored categories compare readable characters, not exact tokens.
+3. Check **Context window usage / 上下文使用率**: recorded used tokens divided by known capacity.
+4. Read **Recorded text share / 已记录内容的文本占比**. The colored categories compare readable characters, not exact tokens.
 5. Select a category, sort for the longest material, or inspect **new between two samples**. Open the row to read its contents and origin.
 
 Adjacent token changes are compared only when both samples belong to the same phase, model, and known capacity. Materials between the positions are evidence of what was recorded then, not proof of exact token causality. “Retained at compaction” means the replacement message set actually recorded those materials; missing replacement data remains explicitly unknown.
@@ -89,7 +97,7 @@ Suppose two comparable samples show 40K and 70K tokens. This is an illustrative 
 
 Do not conclude that the return “cost exactly 30K tokens.” Other input and model request construction can contribute. Likewise, a large skill-description category suggests reviewing the catalog text; it does not prove a particular skill ran or wasted tokens.
 
-## Collaboration and settings
+## Agents and settings
 
 The collaboration view links parent and child sessions with their own states and context samples. Inspect the child to see its evidence, then open it in Codex if intervention is needed. Parent and child capacities are separate; do not add their percentages.
 

@@ -9,7 +9,7 @@
 - 使用通用 ZIP 安装包，无需编译器、包管理器、API Key 或额外账号。
 - 从源码构建需要 Swift 6.1+ 和 Xcode 或兼容的 Command Line Tools。先运行 `swift --version`，旧工具链需要更新后才能构建。
 
-当前应用界面为简体中文。
+应用支持简体中文和英文。在「设置 → Language / 语言」切换后立即生效，并记住选择。
 
 ## 方式一：直接下载
 
@@ -21,7 +21,7 @@
 如需手动校验，把对应 `.zip.sha256` 文件与 ZIP 放在同一个目录，在该目录执行：
 
 ```bash
-shasum -a 256 -c Codex-Session-Atlas-0.8.0-macos-universal.zip.sha256
+shasum -a 256 -c Codex-Session-Atlas-0.9.0-macos-universal.zip.sha256
 ```
 
 文件名应与下载版本一致。结果以 `OK` 结尾表示校验通过。
@@ -39,7 +39,7 @@ bash /tmp/codex-session-atlas-install.sh
 
 ```bash
 # 安装指定版本，安装完成后暂不启动。
-bash /tmp/codex-session-atlas-install.sh --version v0.8.0 --no-open
+bash /tmp/codex-session-atlas-install.sh --version v0.9.0 --no-open
 
 # 指定有写入权限的绝对目录。
 bash /tmp/codex-session-atlas-install.sh --dir "$HOME/Applications"

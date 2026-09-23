@@ -45,6 +45,8 @@ enum ObservationParser {
         var title = ""
         var preview = ""
         var output = ""
+        var titleIsSource = false
+        var previewIsAppText = false
         switch type {
         case "usermessage": kind = .user; title = "用户输入"; preview = text(object["content"])
         case "agentmessage":
@@ -58,7 +60,7 @@ enum ObservationParser {
             output = text(object["aggregatedOutput"] ?? object["aggregated_output"] ?? object["stdout"])
         case "mcptoolcall", "dynamictoolcall", "functioncalloutput":
             kind = .tool; title = text(object["tool"] ?? object["name"])
-            if title.isEmpty { title = "工具调用" }
+            if title.isEmpty { title = "工具调用" } else { titleIsSource = true }
             preview = json(object["arguments"])
             output = text(object["result"] ?? object["contentItems"] ?? object["output"])
             if output.isEmpty { output = json(object["result"] ?? object["error"]) }
@@ -72,9 +74,10 @@ enum ObservationParser {
         case "imageview": kind = .tool; title = "查看图片"; preview = text(object["path"])
         case "extension":
             kind = .tool; title = text(object["kind"])
-            if title.isEmpty { title = "扩展调用" }
+            if title.isEmpty { title = "扩展调用" } else { titleIsSource = true }
             preview = text(object["query"] ?? object["text"] ?? object["path"]); output = json(object["results"])
-        default: kind = .unknown; title = text(object["type"]); preview = "未识别的事件，保留源记录"
+        default: kind = .unknown; title = text(object["type"]); titleIsSource = true
+            preview = "未识别的事件，保留源记录"; previewIsAppText = true
         }
         var status = (object["status"] as? String ?? "completed").lowercased()
         if let raw = object["status"] as? [String: Any] { status = String(raw.keys.first ?? "unknown").lowercased() }
@@ -93,7 +96,7 @@ enum ObservationParser {
             threadID: threadID, turnID: turnID, timestamp: ended ?? timestamp, startedAt: started,
             durationMs: duration, kind: kind, title: title, preview: summary(preview),
             status: status, source: source, outputBytes: output.utf8.count, fingerprint: fingerprint,
-            readOnly: readOnly, isPolling: polling)
+            readOnly: readOnly, isPolling: polling, titleIsSource: titleIsSource, previewIsAppText: previewIsAppText)
     }
 
     static func reduce(_ object: [String: Any], reference: SourceReference, state: inout RolloutState) -> UsageSample? {

@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.9.0 — 2026-09-24
+
+- Added instant English / Simplified Chinese switching and a persistent system-language option.
+- Localized navigation, settings, context categories, attention messages, diagnostics, notifications, app menus and display formats.
+- Preserved session content and raw evidence; generated labels remain translatable after loading cached records.
+- Kept navigation and filter selections during language changes and widened English sorting controls.
+- Separated detail pagination state from content text and refreshed open details safely when changing language.
+- Added localization and raw-evidence regression coverage; updated both language guides.
+
 ## 0.8.0 — 2026-09-24
 
 - Default session ordering uses recent activity, includes descendants, and displays the same time used for ranking. Stable task-ID ties avoid arbitrary reordering.

@@ -3,6 +3,110 @@ import SessionAtlasCore
 
 @MainActor
 final class ObservationTests {
+    func testLocalizationCatalogAndSourceArguments() async throws {
+        let issues = Localization.catalogIssues()
+        if !issues.isEmpty { print("Localization catalog issues: \(issues)") }
+        try expectEqual(issues, [])
+        try expectEqual(AppLanguage.resolve(preferredLanguages: ["zh-Hant-TW", "en"]), .simplifiedChinese)
+        try expectEqual(AppLanguage.resolve(preferredLanguages: ["en-US", "zh-Hans"]), .english)
+        try expectEqual(AppLanguage.resolve(preferredLanguages: ["fr-FR"]), .english)
+        for state in ExecutionState.allCases {
+            try expectNotEqual(L(state.label, language: .english), state.label)
+            try expectEqual(L(state.label, language: .simplifiedChinese), state.label)
+        }
+        for category in ContextCategory.allCases {
+            try expectNotEqual(L(category.label, language: .english), category.label)
+            try expectNotEqual(L(category.explanation, language: .english), category.explanation)
+        }
+        try expectEqual(L("已加载 125 条 · 匹配 3 条", language: .english), "Loaded: 125 · Matching: 3")
+        try expectEqual(L("调用请求 · 用户输入 🚀 {0} $1\noriginal", language: .english), "Call requested · 用户输入 🚀 {0} $1\noriginal")
+        try expectEqual(L("第 2 次压缩后", language: .english), "After compaction 2")
+        try expectEqual(Localization.diagnostic("无法读取源记录：源记录已不可用", language: .english), "Cannot read source record: Source record no longer available")
+    }
+
+    func testLocalizedCachedEvidencePreservesSourceText() async throws {
+        let fixture = try Fixture(); defer { fixture.remove() }
+        try fixture.add("one", log: true)
+        try fixture.state.execute("UPDATE threads SET name='用户输入' WHERE id='one'")
+        try fixture.append("one", type: "event_msg", payload: ["type": "task_started", "turn_id": "t"])
+        try fixture.tool("one", id: "source-named-tool", status: "completed", name: "失败")
+        try fixture.append("one", type: "event_msg", payload: ["type": "item_completed", "turn_id": "t",
+            "item": ["type": "agentMessage", "id": "reply", "text": "用户输入", "status": "completed"]])
+        try fixture.append("one", type: "event_msg", payload: ["type": "task_complete", "turn_id": "t", "error": ["message": "已确认"]])
+        let engine = fixture.engine()
+        let result = await engine.poll(selectedID: "one")
+        try expectEqual(result.sessions.first?.title, "用户输入")
+        let observation = await engine.observation("one")
+        let tool = try requireValue(observation.events.first { $0.id == "source-named-tool" })
+        let reply = try requireValue(observation.events.first { $0.id == "reply" })
+        try expectEqual(tool.localizedTitle(language: .english), "失败")
+        try expectEqual(reply.localizedTitle(language: .english), "Assistant reply")
+        try expectEqual(reply.localizedPreview(language: .english), "用户输入")
+        let alert = try requireValue(result.attention.first { $0.rule == "failure" })
+        try expectEqual(alert.localizedExplanation(language: .english), "已确认")
+        let decoded = try JSONDecoder().decode(TraceEvent.self, from: JSONEncoder().encode(tool))
+        try expectEqual(decoded.localizedTitle(language: .english), "失败")
+        await engine.stop()
+        let reopened = fixture.engine()
+        _ = await reopened.poll(selectedID: "one")
+        let cached = await reopened.observation("one")
+        try expectEqual(cached.events.first { $0.id == "reply" }?.localizedTitle(language: .english), "Assistant reply")
+        try expectEqual(cached.events.first { $0.id == "reply" }?.localizedTitle(language: .simplifiedChinese), "助手回复")
+    }
+
+    func testLocalizedMaterialAndDetailPagination() async throws {
+        let fixture = try Fixture(); defer { fixture.remove() }
+        try fixture.add("one", log: true)
+        let original = "本页结束 用户输入 失败 🚀 " + String(repeating: "原文", count: 13_000)
+        try fixture.append("one", type: "response_item", payload: ["type": "message", "role": "user",
+            "content": [["type": "input_text", "text": original]]])
+        try fixture.append("one", type: "response_item", payload: ["type": "function_call", "name": "functions.exec_command", "call_id": "call", "arguments": "用户输入"])
+        try fixture.append("one", type: "response_item", payload: ["type": "function_call_output", "call_id": "call", "output": "本页结束"])
+        try fixture.append("one", type: "compacted", payload: ["replacement_history": [["type": "compaction", "encrypted_content": "opaque-test"]]])
+        let history = await ContextExplorer().load(threadID: "one", path: fixture.log("one").path)
+        let materials = history.phases.flatMap(\.materials)
+        let user = try requireValue(materials.first { $0.category == .user })
+        let call = try requireValue(materials.first { $0.category == .toolCall })
+        let result = try requireValue(materials.first { $0.category == .toolResult })
+        let summary = try requireValue(materials.first { $0.category == .summary })
+        try expectEqual(user.localizedTitle(language: .english), "User input")
+        try expectTrue(user.localizedPreview(language: .english).hasPrefix("本页结束 用户输入 失败"))
+        try expectEqual(call.localizedTitle(language: .english), "Call · Terminal command")
+        try expectNotEqual(summary.localizedPreview(language: .english), summary.preview)
+        let engine = fixture.engine()
+        let first = await engine.detailPage(user.source, readable: true, language: .english)
+        let second = await engine.detailPage(user.source, offset: 24_000, readable: true, language: .english)
+        try expectTrue(first.hasMore); try expectFalse(second.hasMore)
+        try expectEqual(first.text + second.text, original)
+        let short = await engine.detailPage(result.source, readable: true, language: .english)
+        try expectEqual(short.text, "本页结束"); try expectFalse(short.hasMore)
+        let opaque = await engine.detailPage(summary.source, language: .english)
+        try expectTrue(opaque.text.contains("Internal content not displayed"))
+        try expectTrue(opaque.text.contains("encrypted_content"))
+        try expectFalse(opaque.text.contains("opaque-test"))
+    }
+
+    func testLegacyCheckpointRebuildKeepsUsageAndSeenMarkers() async throws {
+        let fixture = try Fixture(); defer { fixture.remove() }
+        try fixture.add("one", log: true)
+        try fixture.append("one", type: "event_msg", payload: ["type": "task_started", "turn_id": "t"])
+        try fixture.append("one", type: "token_usage_record", payload: usage("one", "original-response"))
+        for i in 0..<3 { try fixture.tool("one", id: "retry-\(i)", status: "failed") }
+        let engine = fixture.engine()
+        let original = await engine.poll(selectedID: "one")
+        let alert = try requireValue(original.attention.first { $0.rule == "retries" })
+        await engine.markSeen(alert.id); await engine.stop()
+        let cache = try FixtureConnection(fixture.root.appendingPathComponent("cache/monitor.sqlite").path, readOnly: false)
+        // Remove fields absent in 0.8 checkpoints. Only parsed checkpoints should be rebuilt.
+        try cache.execute("UPDATE checkpoints SET state=json_remove(state, '$.events[0].titleIsSource') WHERE thread_id='one'")
+        let reopened = fixture.engine()
+        let rebuilt = await reopened.poll(selectedID: "one")
+        try expectEqual(rebuilt.observedTokens, original.observedTokens)
+        try expectTrue(rebuilt.attention.first { $0.id == alert.id }?.seen == true)
+        let events = await reopened.observation("one").events
+        try expectTrue(events.contains { $0.localizedTitle(language: .english) == "Turn started" })
+    }
+
     func testSessionOrderingUsesExecutionTimeAndStableTies() async throws {
         let fixture = try Fixture(); defer { fixture.remove() }
         for id in ["old-alert", "recent", "a", "b", "fallback"] { try fixture.add(id) }
@@ -535,6 +639,14 @@ struct ObservationChecksMain {
     }
     @MainActor private static func run() async throws {
         let tests = ObservationTests()
+        try await tests.testLocalizationCatalogAndSourceArguments()
+        print("PASS testLocalizationCatalogAndSourceArguments")
+        try await tests.testLocalizedCachedEvidencePreservesSourceText()
+        print("PASS testLocalizedCachedEvidencePreservesSourceText")
+        try await tests.testLocalizedMaterialAndDetailPagination()
+        print("PASS testLocalizedMaterialAndDetailPagination")
+        try await tests.testLegacyCheckpointRebuildKeepsUsageAndSeenMarkers()
+        print("PASS testLegacyCheckpointRebuildKeepsUsageAndSeenMarkers")
         try await tests.testSessionOrderingUsesExecutionTimeAndStableTies()
         print("PASS testSessionOrderingUsesExecutionTimeAndStableTies")
         try await tests.testSessionOrderingIncludesDescendantsAndGuardsCycles()
@@ -581,6 +693,6 @@ struct ObservationChecksMain {
         print("PASS testContextIncrementalIndexAndMissingReplacementRemainExplicit")
         try await tests.testContextComparisonUsesAdjacentPositionsAndRespectsModelAndPhaseBoundaries()
         print("PASS testContextComparisonUsesAdjacentPositionsAndRespectsModelAndPhaseBoundaries")
-        print("Observation checks passed: 23 scenarios")
+        print("Observation checks passed: 27 scenarios")
     }
 }

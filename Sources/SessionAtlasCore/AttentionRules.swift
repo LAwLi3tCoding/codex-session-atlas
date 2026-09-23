@@ -5,16 +5,16 @@ enum AttentionRules {
         var items: [AttentionItem] = []
         let current = state.events.filter { $0.turnID == state.turnID }
         func add(_ rule: String, _ title: String, _ explanation: String, _ advice: String,
-                 event: TraceEvent? = nil, definite: Bool = false, time: Date? = nil, suffix: String = "") {
+                 event: TraceEvent? = nil, explanationIsSource: Bool = false, definite: Bool = false, time: Date? = nil, suffix: String = "") {
             items.append(AttentionItem(id: "\(state.threadID):\(state.turnID):\(rule):\(suffix)",
                 threadID: state.threadID, rule: rule, title: title, explanation: explanation, advice: advice,
                 timestamp: time ?? event?.timestamp ?? state.stateAt ?? now, evidenceID: event?.id,
-                evidence: event?.source, definite: definite))
+                evidence: event?.source, definite: definite, explanationIsSource: explanationIsSource))
         }
         if state.state == .failed {
             let event = current.last(where: \.failed)
             add("failure", "本轮执行失败", event?.preview.isEmpty == false ? event!.preview : "运行时记录了失败的结束状态",
-                "打开原任务，结合失败前的调用与错误信息处理；避免在原因未明时反复重试。", event: event, definite: true)
+                "打开原任务，结合失败前的调用与错误信息处理；避免在原因未明时反复重试。", event: event, explanationIsSource: event?.preview.isEmpty == false, definite: true)
         }
         if state.state == .waiting {
             add("waiting", "等待你补充信息", "已记录输入请求，尚未观察到对应响应",

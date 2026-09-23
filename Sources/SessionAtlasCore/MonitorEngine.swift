@@ -321,7 +321,13 @@ public actor MonitorEngine {
         session.rolloutPath?.isEmpty == false
     }
     public func detail(_ reference: SourceReference, offset: Int = 0, readable: Bool = false) -> String {
-        do { return try ObservationSource.detail(reference, characterOffset: offset, readable: readable) }
+        do { return try ObservationSource.detail(reference, characterOffset: offset, readable: readable).text }
         catch { return "无法读取源记录：\(error)" }
     }
+    public func detailPage(_ reference: SourceReference, offset: Int = 0, readable: Bool = false,
+                           language: AppLanguage = .current) -> RecordDetail {
+        do { return try ObservationSource.detail(reference, characterOffset: offset, readable: readable, language: language) }
+        catch { return RecordDetail(text: Localization.diagnostic("无法读取源记录：\(error)", language: language)) }
+    }
+
 }

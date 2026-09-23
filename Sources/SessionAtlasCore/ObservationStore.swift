@@ -130,7 +130,7 @@ struct ObservationSource {
                             hasMore: rows.count > limit, note: nil)
     }
 
-    static func detail(_ reference: SourceReference, characterOffset: Int = 0, pageSize: Int = 24_000, readable: Bool = false) throws -> String {
+    static func detail(_ reference: SourceReference, characterOffset: Int = 0, pageSize: Int = 24_000, readable: Bool = false, language: AppLanguage = .simplifiedChinese) throws -> RecordDetail {
         let data: Data
         if let offset = reference.offset {
             let file = try FileHandle(forReadingFrom: URL(fileURLWithPath: reference.path))
@@ -147,14 +147,14 @@ struct ObservationSource {
             guard let raw = row?["item_json"] else { throw StoreError.unavailable("源记录已不可用") }
             data = Data(raw.utf8)
         }
-        var text = String(data: data, encoding: .utf8) ?? "内容编码不可显示"
+        var text = String(data: data, encoding: .utf8) ?? L("内容编码不可显示", language: language)
         if var object = try? JSONSerialization.jsonObject(with: data) {
             for key in reference.jsonPointer ?? [] {
                 if let dictionary = object as? [String: Any], let value = dictionary[key] { object = value }
                 else if let array = object as? [Any], let index = Int(key), array.indices.contains(index) { object = array[index] }
                 else { throw StoreError.unavailable("源记录中已找不到这项材料") }
             }
-            let visible = visibleObject(object)
+            let visible = visibleObject(object, language: language)
             if readable, let content = readableText(visible), !content.isEmpty { text = content }
             else if let pretty = try? JSONSerialization.data(withJSONObject: visible, options: [.prettyPrinted, .sortedKeys, .fragmentsAllowed]) {
                 text = String(decoding: pretty, as: UTF8.self)
@@ -162,7 +162,7 @@ struct ObservationSource {
         }
         let start = text.index(text.startIndex, offsetBy: min(max(characterOffset, 0), text.count))
         let end = text.index(start, offsetBy: pageSize, limitedBy: text.endIndex) ?? text.endIndex
-        return String(text[start..<end]) + (end < text.endIndex ? "\n\n—— 本页结束，可加载下一页 ——" : "")
+        return RecordDetail(text: String(text[start..<end]), hasMore: end < text.endIndex)
     }
     private static func readableText(_ value: Any) -> String? {
         if let text = value as? String { return text }
@@ -174,17 +174,17 @@ struct ObservationSource {
         }
         return nil
     }
-    private static func visibleObject(_ value: Any) -> Any {
+    private static func visibleObject(_ value: Any, language: AppLanguage) -> Any {
         if let object = value as? [String: Any] {
             return object.reduce(into: [String: Any]()) { result, pair in
                 if ["encrypted_content", "raw_content", "rawContent"].contains(pair.key) {
-                    result[pair.key] = "未展示内部内容"
+                    result[pair.key] = L("未展示内部内容", language: language)
                 } else if ["image_url", "image_data"].contains(pair.key) {
-                    result[pair.key] = "图像内容省略"
-                } else { result[pair.key] = visibleObject(pair.value) }
+                    result[pair.key] = L("图像内容省略", language: language)
+                } else { result[pair.key] = visibleObject(pair.value, language: language) }
             }
         }
-        if let array = value as? [Any] { return array.map(visibleObject) }
+        if let array = value as? [Any] { return array.map { visibleObject($0, language: language) } }
         return value
     }
 }

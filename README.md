@@ -14,7 +14,7 @@
 
 Running several Codex tasks makes it hard to tell which one needs you, why a tool keeps failing, or why context usage jumped. Session Atlas puts the local session list, execution history, and recorded context materials in one window, with links back to the evidence and the original task.
 
-**Local data. Read-only observation. No API key or additional model calls.** The current application UI is in Simplified Chinese; this README and the installation and user guides are available in English and Chinese.
+**Local data. Read-only observation. No API key or additional model calls.** The app and its installation and user guides support English and Simplified Chinese. Switch languages instantly in **Settings → Language / 语言**; session content stays in its original language.
 
 ![Three ways to inspect a Codex session: activity, execution trace, and context materials. Illustrative example, not a live screenshot.](docs/assets/overview.svg)
 

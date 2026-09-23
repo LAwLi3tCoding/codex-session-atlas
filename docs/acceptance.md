@@ -1,5 +1,15 @@
 # Validation / 验证
 
+## 0.9.0
+
+- `swift run FixtureChecks`: passed. `swift run ObservationChecks`: 27 synthetic scenarios passed.
+- Localization checks cover both languages, all catalog placeholders, Unicode/source arguments, cached labels, source-text collisions, encrypted-content markers and detail pagination independent of visible text.
+- A legacy-checkpoint rebuild preserves collected token usage and seen markers.
+- Native UI checks on Apple Silicon cover English settings/layout, restart persistence, trace-filter retention, historical context sample retention, context categories and an open opaque-content sheet switching languages. Source excerpts remain unchanged.
+- English sort controls and the task sidebar accommodate longer labels. App-owned menus and the language shortcut menu update immediately.
+- Universal arm64/x86_64 build, strict signature verification and isolated installer checks pass. Intel runtime has not been tested on hardware.
+- Both READMEs and installation/user guides describe language selection and source-text preservation. macOS-owned permission dialogs continue to use the system language.
+
 ## 0.8.0
 
 - `swift run FixtureChecks`: passed.
