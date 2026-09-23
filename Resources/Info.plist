@@ -5,7 +5,7 @@
     <key>CFBundleDevelopmentRegion</key>
     <string>en</string>
     <key>CFBundleExecutable</key>
-    <string>CodexAgentDesktopMonitor</string>
+    <string>CodexSessionAtlas</string>
     <key>CFBundleIdentifier</key>
 	<string>app.agentmonitor.desktop</string>
     <key>CFBundleIconFile</key>
@@ -13,11 +13,15 @@
     <key>CFBundleInfoDictionaryVersion</key>
     <string>6.0</string>
     <key>CFBundleName</key>
-    <string>Codex Agent Monitor</string>
+    <string>Codex Session Atlas</string>
+    <key>CFBundleDisplayName</key>
+    <string>Codex Session Atlas</string>
     <key>CFBundlePackageType</key>
     <string>APPL</string>
     <key>CFBundleShortVersionString</key>
-    <string>0.1.0</string>
+    <string>0.8.0</string>
+    <key>CFBundleVersion</key>
+    <string>11</string>
     <key>LSMinimumSystemVersion</key>
     <string>13.0</string>
     <key>NSHighResolutionCapable</key>

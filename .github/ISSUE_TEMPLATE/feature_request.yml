@@ -1,0 +1,15 @@
+name: Feature request / 功能建议
+description: Describe a real analysis workflow that is difficult today.
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What are you trying to understand? / 想分析什么问题？
+    validations:
+      required: true
+  - type: textarea
+    id: outcome
+    attributes:
+      label: What result would help? / 希望获得什么结果？
+    validations:
+      required: true

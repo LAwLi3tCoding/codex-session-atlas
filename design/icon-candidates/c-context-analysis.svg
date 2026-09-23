@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+<title>C · 上下文分析 — Codex Session Atlas candidate</title>
+<defs>
+  <linearGradient id="tile" x1="0" y1="0" x2="0.8" y2="1"><stop stop-color="#414549"/><stop offset="0.5" stop-color="#2c3034"/><stop offset="1" stop-color="#202326"/></linearGradient>
+  <linearGradient id="paper" x1="0" y1="0" x2="0.8" y2="1"><stop stop-color="#ffffff"/><stop offset="1" stop-color="#e4e8e6"/></linearGradient>
+  <linearGradient id="muted" x1="0" y1="0" x2="0.8" y2="1"><stop stop-color="#b9c4c1"/><stop offset="1" stop-color="#758481"/></linearGradient>
+  <linearGradient id="accent" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#81c5ad"/><stop offset="1" stop-color="#4d9b80"/></linearGradient>
+</defs>
+<rect x="72" y="72" width="880" height="880" rx="198" fill="url(#tile)"/>
+<rect x="74" y="74" width="876" height="876" rx="196" fill="none" stroke="#656d71" stroke-opacity="0.42" stroke-width="3"/>
+
+<!-- Broad segmented bands show context layers and their relative occupancy. -->
+<rect x="233" y="235" width="558" height="562" rx="81" fill="#0d1114" opacity="0.28" transform="translate(6 14)"/>
+<rect x="233" y="235" width="558" height="562" rx="81" fill="url(#paper)"/>
+<path d="M303 352 H721" stroke="#c5ceca" stroke-width="3"/>
+<rect x="305" y="291" width="132" height="17" rx="8.5" fill="#46524f"/>
+<circle cx="709" cy="300" r="10" fill="#7ea891"/>
+<rect x="304" y="403" width="230" height="62" rx="15" fill="#3b4845"/>
+<rect x="552" y="403" width="168" height="62" rx="15" fill="#c6ceca"/>
+<rect x="304" y="519" width="124" height="62" rx="15" fill="url(#accent)"/>
+<rect x="446" y="519" width="274" height="62" rx="15" fill="#c6ceca"/>
+<rect x="304" y="635" width="306" height="62" rx="15" fill="#778781"/>
+<rect x="628" y="635" width="92" height="62" rx="15" fill="#c6ceca"/>
+
+</svg>

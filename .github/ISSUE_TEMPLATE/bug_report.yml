@@ -1,0 +1,28 @@
+name: Bug report / 问题反馈
+description: Report reproducible behavior with synthetic, non-private evidence.
+body:
+  - type: markdown
+    attributes:
+      value: "Do not attach real session logs, credentials, private titles, or local user paths. 请使用合成数据。"
+  - type: input
+    id: version
+    attributes:
+      label: App version / 应用版本
+    validations:
+      required: true
+  - type: input
+    id: environment
+    attributes:
+      label: macOS version and architecture / 系统版本与架构
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Steps, expected behavior, and actual behavior / 步骤、预期与实际行为
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Synthetic reproduction or sanitized evidence / 合成用例或脱敏依据

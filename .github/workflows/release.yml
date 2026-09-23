@@ -1,0 +1,35 @@
+name: Release
+on:
+  push:
+    tags: ['v*']
+permissions:
+  contents: read
+jobs:
+  release:
+    runs-on: macos-15
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Check release version
+        env:
+          TAG: ${{ github.ref_name }}
+        run: |
+          version=$(plutil -extract CFBundleShortVersionString raw Resources/Info.plist)
+          test "$TAG" = "v$version"
+          test -f "docs/releases/$TAG.md"
+      - run: swift run FixtureChecks
+      - run: swift run ObservationChecks
+      - run: Scripts/make-app.sh --universal
+      - run: bash Scripts/check-installer.sh build/*-macos-universal.zip
+      - name: Publish application and checksum
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          gh release create "$TAG" build/*.zip build/*.sha256 \
+            --verify-tag --title "Codex Session Atlas $TAG" \
+            --notes-file "docs/releases/$TAG.md" --latest

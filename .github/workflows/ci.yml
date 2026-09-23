@@ -1,0 +1,26 @@
+name: CI
+on:
+  push:
+    branches: [main]
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  checks:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - run: swift --version
+      - run: swift run FixtureChecks
+      - run: swift run ObservationChecks
+      - run: bash -n Scripts/install.sh && zsh -n Scripts/make-app.sh
+      - run: Scripts/make-app.sh --universal
+      - run: bash Scripts/check-installer.sh build/*-macos-universal.zip
+      - uses: actions/upload-artifact@v4
+        with:
+          name: macos-universal
+          path: |
+            build/*.zip
+            build/*.sha256

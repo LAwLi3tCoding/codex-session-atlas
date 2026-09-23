@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+<title>D · 会话观察 — Codex Session Atlas candidate</title>
+<defs>
+  <linearGradient id="tile" x1="0" y1="0" x2="0.8" y2="1"><stop stop-color="#414549"/><stop offset="0.5" stop-color="#2c3034"/><stop offset="1" stop-color="#202326"/></linearGradient>
+  <linearGradient id="paper" x1="0" y1="0" x2="0.8" y2="1"><stop stop-color="#ffffff"/><stop offset="1" stop-color="#e4e8e6"/></linearGradient>
+  <linearGradient id="muted" x1="0" y1="0" x2="0.8" y2="1"><stop stop-color="#b9c4c1"/><stop offset="1" stop-color="#758481"/></linearGradient>
+  <linearGradient id="accent" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#81c5ad"/><stop offset="1" stop-color="#4d9b80"/></linearGradient>
+</defs>
+<rect x="72" y="72" width="880" height="880" rx="198" fill="url(#tile)"/>
+<rect x="74" y="74" width="876" height="876" rx="196" fill="none" stroke="#656d71" stroke-opacity="0.42" stroke-width="3"/>
+
+<!-- The inspectable object is explicitly a conversation rather than a document. -->
+<path d="M301 261 H617 Q681 261 681 325 V526 Q681 590 617 590 H409 L310 666 V590 H301 Q237 590 237 526 V325 Q237 261 301 261 Z" fill="#0d1114" opacity="0.25" transform="translate(6 14)"/>
+<path d="M301 261 H617 Q681 261 681 325 V526 Q681 590 617 590 H409 L310 666 V590 H301 Q237 590 237 526 V325 Q237 261 301 261 Z" fill="url(#paper)"/>
+<path d="M322 363 H535 M322 430 H459" fill="none" stroke="#4a5652" stroke-width="28" stroke-linecap="round"/>
+<path d="M682 677 L779 774" stroke="#11171a" stroke-width="75" stroke-linecap="round"/>
+<circle cx="589" cy="581" r="154" fill="#28312f"/>
+<circle cx="589" cy="581" r="133" fill="none" stroke="url(#paper)" stroke-width="39"/>
+<path d="M683 677 L779 774" stroke="#e8eee9" stroke-width="45" stroke-linecap="round"/>
+<path d="M543 581 H577 L602 547" fill="none" stroke="url(#accent)" stroke-width="24" stroke-linecap="round" stroke-linejoin="round"/>
+<circle cx="602" cy="547" r="17" fill="#94cfb8"/>
+
+</svg>

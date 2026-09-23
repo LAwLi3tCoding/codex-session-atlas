@@ -2,16 +2,20 @@
 import PackageDescription
 
 let package = Package(
-    name: "CodexAgentDesktopMonitor",
+    name: "CodexSessionAtlas",
     platforms: [.macOS(.v13)],
     products: [
-        .library(name: "CodexAgentMonitor", targets: ["CodexAgentMonitor"]),
-        .executable(name: "CodexAgentDesktopMonitor", targets: ["CodexAgentDesktopMonitor"]),
+        .library(name: "SessionAtlasCore", targets: ["SessionAtlasCore"]),
+        .executable(name: "CodexSessionAtlas", targets: ["CodexSessionAtlas"]),
         .executable(name: "FixtureChecks", targets: ["FixtureChecks"]),
+        .executable(name: "ObservationChecks", targets: ["ObservationChecks"]),
+        .executable(name: "MonitorProbe", targets: ["MonitorProbe"]),
     ],
     targets: [
-        .target(name: "CodexAgentMonitor", linkerSettings: [.linkedLibrary("sqlite3")]),
-        .executableTarget(name: "CodexAgentDesktopMonitor", dependencies: ["CodexAgentMonitor"]),
-        .executableTarget(name: "FixtureChecks", dependencies: ["CodexAgentMonitor"]),
+        .target(name: "SessionAtlasCore", linkerSettings: [.linkedLibrary("sqlite3")]),
+        .executableTarget(name: "CodexSessionAtlas", dependencies: ["SessionAtlasCore"]),
+        .executableTarget(name: "FixtureChecks", dependencies: ["SessionAtlasCore"]),
+        .executableTarget(name: "MonitorProbe", dependencies: ["SessionAtlasCore"]),
+        .executableTarget(name: "ObservationChecks", dependencies: ["SessionAtlasCore"], linkerSettings: [.linkedLibrary("sqlite3")]),
     ]
 )

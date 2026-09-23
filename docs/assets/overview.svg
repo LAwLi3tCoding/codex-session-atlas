@@ -1,0 +1,50 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="500" viewBox="0 0 1200 500" role="img" aria-labelledby="title desc">
+<title id="title">Codex Session Atlas — activity, execution, and context</title>
+<desc id="desc">An illustrative workflow with synthetic examples: find a session, inspect its tool output, and compare recorded context materials. This is not a live application screenshot.</desc>
+<rect width="1200" height="500" rx="20" fill="#f5f5f2"/>
+<g font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Arial,sans-serif" fill="#262624">
+<text x="40" y="49" font-size="13" fill="#6b6b67" letter-spacing="1.5">CODEX SESSION ATLAS</text>
+<text x="40" y="95" font-size="32" font-weight="600">From a busy session to the evidence that matters.</text>
+<text x="40" y="128" font-size="16" fill="#6b6b67">Activity → execution trace → recorded context materials</text>
+<rect x="40" y="164" width="346" height="273" rx="12" fill="white"/>
+<rect x="427" y="164" width="346" height="273" rx="12" fill="white"/>
+<rect x="814" y="164" width="346" height="273" rx="12" fill="white"/>
+<text x="62" y="198" font-size="12" fill="#6b6b67">01 / FIND THE TASK</text>
+<text x="62" y="230" font-size="21" font-weight="600">Which agent needs me?</text>
+<rect x="58" y="253" width="310" height="61" rx="7" fill="#f2f2ef"/>
+<circle cx="76" cy="275" r="4" fill="#008578"/>
+<text x="89" y="280" font-size="15" font-weight="600">Build a sample search page</text>
+<text x="89" y="302" font-size="12" fill="#6b6b67">Recent activity · 2 child agents</text>
+<path d="M76 328v35h13" stroke="#d4d4ce" fill="none" stroke-width="1.5"/>
+<circle cx="99" cy="342" r="4" fill="#b36612"/>
+<text x="112" y="347" font-size="14">Check search behavior</text>
+<text x="112" y="370" font-size="12" fill="#6b6b67">Waiting for input</text>
+<text x="62" y="412" font-size="12" fill="#6b6b67">Latest group activity determines the order.</text>
+<path d="M398 293h17m-6-6 6 6-6 6" fill="none" stroke="#8b8b85" stroke-width="2"/>
+<text x="449" y="198" font-size="12" fill="#6b6b67">02 / FOLLOW THE TRACE</text>
+<text x="449" y="230" font-size="21" font-weight="600">What actually happened?</text>
+<path d="M457 270v104" stroke="#e2e2dc" stroke-width="2"/>
+<circle cx="457" cy="275" r="5" fill="#416fba"/>
+<text x="477" y="280" font-size="14">User: inspect the failing test</text>
+<circle cx="457" cy="319" r="5" fill="#a86118"/>
+<text x="477" y="324" font-size="14">Tool call: run focused checks</text>
+<circle cx="457" cy="363" r="5" fill="#007d79"/>
+<text x="477" y="368" font-size="14">Tool result: open the evidence</text>
+<text x="449" y="412" font-size="12" fill="#6b6b67">Read the result before interpreting the alert.</text>
+<path d="M785 293h17m-6-6 6 6-6 6" fill="none" stroke="#8b8b85" stroke-width="2"/>
+<text x="836" y="198" font-size="12" fill="#6b6b67">03 / INSPECT THE MATERIALS</text>
+<text x="836" y="230" font-size="21" font-weight="600">What filled the context?</text>
+<text x="836" y="269" font-size="13" fill="#6b6b67">Recorded readable text · example</text>
+<rect x="836" y="286" width="70" height="19" rx="3" fill="#6d6577"/>
+<rect x="909" y="286" width="41" height="19" rx="3" fill="#416fba"/>
+<rect x="953" y="286" width="142" height="19" rx="3" fill="#007d79"/>
+<rect x="1098" y="286" width="39" height="19" rx="3" fill="#a64968"/>
+<circle cx="841" cy="334" r="4" fill="#6d6577"/><text x="853" y="339" font-size="13">Instructions</text>
+<circle cx="1009" cy="334" r="4" fill="#416fba"/><text x="1021" y="339" font-size="13">User input</text>
+<circle cx="841" cy="365" r="4" fill="#007d79"/><text x="853" y="370" font-size="13">Tool results</text>
+<circle cx="1009" cy="365" r="4" fill="#a64968"/><text x="1021" y="370" font-size="13">Replies</text>
+<text x="836" y="412" font-size="12" fill="#6b6b67">Text proportions are not exact token costs.</text>
+<text x="40" y="474" font-size="12" fill="#6b6b67">Local observation · Read-only sources · No extra model calls</text>
+<text x="1160" y="474" text-anchor="end" font-size="12" fill="#6b6b67">Illustrative examples, not live session data</text>
+</g>
+</svg>
