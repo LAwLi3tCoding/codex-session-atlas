@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.9.1 — 2026-09-24
+
+- Reduced the white icon tile by 6.4%, increased transparent padding, and softened its corners for a more balanced Dock appearance.
+- Preserved the session bubbles, execution path, and white background. All packaged icon sizes are generated from the corrected SVG.
+
 ## 0.9.0 — 2026-09-24
 
 - Added instant English / Simplified Chinese switching and a persistent system-language option.

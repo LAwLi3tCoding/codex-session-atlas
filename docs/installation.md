@@ -21,7 +21,7 @@ The app supports English and Simplified Chinese. Use **Settings â†’ Language / è
 For an optional manual integrity check, download the matching `.zip.sha256` beside the ZIP, switch to that folder, and run:
 
 ```bash
-shasum -a 256 -c Codex-Session-Atlas-0.9.0-macos-universal.zip.sha256
+shasum -a 256 -c Codex-Session-Atlas-0.9.1-macos-universal.zip.sha256
 ```
 
 Use the filenames for the version you downloaded. The expected output ends in `OK`.
@@ -39,7 +39,7 @@ Optional arguments:
 
 ```bash
 # Pin a version and leave it closed after installation.
-bash /tmp/codex-session-atlas-install.sh --version v0.9.0 --no-open
+bash /tmp/codex-session-atlas-install.sh --version v0.9.1 --no-open
 
 # Use another writable absolute directory.
 bash /tmp/codex-session-atlas-install.sh --dir "$HOME/Applications"

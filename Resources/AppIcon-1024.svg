@@ -5,8 +5,9 @@
   <linearGradient id="muted" x1="0" y1="0" x2="0.8" y2="1"><stop stop-color="#d9e0dd"/><stop offset="1" stop-color="#b1bdb7"/></linearGradient>
   <linearGradient id="accent" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#81c5ad"/><stop offset="1" stop-color="#4d9b80"/></linearGradient>
 </defs>
-<rect x="72" y="72" width="880" height="880" rx="198" fill="#ffffff"/>
-<rect x="74" y="74" width="876" height="876" rx="196" fill="none" stroke="#e0e4e1" stroke-width="3"/>
+<!-- Keep transparent Dock padding separate from the unchanged session artwork. -->
+<rect x="100" y="100" width="824" height="824" rx="212" fill="#ffffff"/>
+<rect x="102" y="102" width="820" height="820" rx="210" fill="none" stroke="#e0e4e1" stroke-width="3"/>
 
 <!-- A second bubble establishes multiple sessions rather than a single chat client. -->
 <path d="M395 242 H735 Q785 242 785 292 V485 Q785 535 735 535 H684 V585 L609 535 H395 Q345 535 345 485 V292 Q345 242 395 242 Z" fill="#0d1114" opacity="0.08" transform="translate(6 15)"/>

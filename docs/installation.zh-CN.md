@@ -21,7 +21,7 @@
 如需手动校验，把对应 `.zip.sha256` 文件与 ZIP 放在同一个目录，在该目录执行：
 
 ```bash
-shasum -a 256 -c Codex-Session-Atlas-0.9.0-macos-universal.zip.sha256
+shasum -a 256 -c Codex-Session-Atlas-0.9.1-macos-universal.zip.sha256
 ```
 
 文件名应与下载版本一致。结果以 `OK` 结尾表示校验通过。
@@ -39,7 +39,7 @@ bash /tmp/codex-session-atlas-install.sh
 
 ```bash
 # 安装指定版本，安装完成后暂不启动。
-bash /tmp/codex-session-atlas-install.sh --version v0.9.0 --no-open
+bash /tmp/codex-session-atlas-install.sh --version v0.9.1 --no-open
 
 # 指定有写入权限的绝对目录。
 bash /tmp/codex-session-atlas-install.sh --dir "$HOME/Applications"
