@@ -62,7 +62,7 @@ struct ObservationSource {
         let columns = try db.columns("threads")
         guard columns.contains("id") else { throw StoreError.unavailable("会话索引缺少标识字段") }
         let wanted = ["id", "name", "title", "preview", "cwd", "source", "thread_source", "model", "reasoning_effort",
-                      "agent_nickname", "rollout_path", "archived", "updated_at_ms", "updated_at", "recency_at_ms"]
+                      "agent_nickname", "agent_path", "rollout_path", "archived", "updated_at_ms", "updated_at", "recency_at_ms"]
         let selection = wanted.map { field in
             guard columns.contains(field) else { return "NULL AS \(field)" }
             // Older catalogs store entire first prompts in title/preview. Keep the directory
@@ -86,7 +86,10 @@ struct ObservationSource {
                 workspace: row["cwd"].map { URL(fileURLWithPath: $0).standardizedFileURL.path } ?? "未知项目",
                 source: row["thread_source"] ?? row["source"] ?? "未知来源",
                 model: row["model"] ?? "未知模型", effort: row["reasoning_effort"] ?? "未知",
-                nickname: row["agent_nickname"], parentID: parents[id], rolloutPath: row["rollout_path"],
+                nickname: row["agent_nickname"], taskName: row["agent_path"].flatMap { path in
+                    let name = path.split(separator: "/").last.map(String.init)
+                    return name == "root" ? nil : name
+                }, parentID: parents[id], rolloutPath: row["rollout_path"],
                 archived: row["archived"] == "1", updatedAt: Date(timeIntervalSince1970: ms / 1000))
         }.sorted { $0.updatedAt > $1.updatedAt }
     }

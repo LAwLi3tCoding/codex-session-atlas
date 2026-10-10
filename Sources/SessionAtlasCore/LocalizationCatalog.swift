@@ -25,6 +25,7 @@ enum LocalizationCatalog {
         "复制任务标识": "Copy task ID",
         "查看父任务": "View parent task",
         "任务：": "Task: ",
+        "任务标识：": "Task name: ",
         "任务内容未记录": "Task content not recorded",
         "概览": "Overview",
         "最近活动": "Recent activity",

@@ -346,9 +346,9 @@ struct SessionDetail: View {
                                         Text(agent.nickname ?? model.title(agent)).font(.system(size: 13, weight: .medium)).lineLimit(2)
                                         if agent.parentID != nil {
                                             let taskTitle = model.title(agent).trimmingCharacters(in: .whitespacesAndNewlines)
-                                            let task = taskTitle.isEmpty || taskTitle == agent.id || taskTitle == agent.nickname
-                                                ? L("任务内容未记录") : taskTitle
-                                            Text(L("任务：") + task).font(.callout).foregroundStyle(MonitorStyle.secondary)
+                                            let hasTitle = !taskTitle.isEmpty && taskTitle != agent.id && taskTitle != agent.nickname
+                                            let task = hasTitle ? taskTitle : agent.taskName ?? L("任务内容未记录")
+                                            Text(L(hasTitle || agent.taskName == nil ? "任务：" : "任务标识：") + task).font(.callout).foregroundStyle(MonitorStyle.secondary)
                                                 .lineLimit(2).help(task)
                                         }
                                         Text("\(agent.model == "未知模型" ? L("未知模型") : agent.model) · \(L("推理强度 \(agent.effort == "未知" ? L("未知") : agent.effort)")) · \(ageLabel(agent.lastEventAt))").font(.caption).foregroundStyle(MonitorStyle.secondary)

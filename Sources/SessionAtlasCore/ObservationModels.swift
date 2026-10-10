@@ -23,6 +23,7 @@ public struct SessionSummary: Identifiable, Codable, Sendable, Equatable {
     public var model: String
     public var effort: String
     public var nickname: String?
+    public var taskName: String? = nil
     public var parentID: String?
     public var rolloutPath: String?
     public var archived: Bool

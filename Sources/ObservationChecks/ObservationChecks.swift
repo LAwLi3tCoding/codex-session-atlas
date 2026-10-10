@@ -240,6 +240,21 @@ final class ObservationTests {
         try expectEqual(try fixture.state.rows("SELECT COUNT(*) AS n FROM threads").first?["n"], "207")
     }
 
+    func testSubagentTaskNameWithoutTitle() async throws {
+        let fixture = try Fixture(); defer { fixture.remove() }
+        try fixture.add("parent")
+        try fixture.add("child")
+        try fixture.state.execute("ALTER TABLE threads ADD COLUMN agent_path TEXT")
+        try fixture.state.execute("UPDATE threads SET agent_path='/root' WHERE id='parent'")
+        try fixture.state.execute("UPDATE threads SET name='',agent_path='/root/verification_worker' WHERE id='child'")
+        try fixture.state.execute("INSERT INTO thread_spawn_edges VALUES('parent','child','completed')")
+        let engine = fixture.engine()
+        let snapshot = await engine.poll()
+        try expectEqual(snapshot.sessions.first { $0.id == "child" }?.taskName, "verification_worker")
+        try expectEqual(snapshot.sessions.first { $0.id == "child" }?.parentID, "parent")
+        try expectEqual(snapshot.sessions.first { $0.id == "parent" }?.taskName, nil)
+    }
+
     func testCatalogBoundsEmbeddedPromptMetadata() async throws {
         let fixture = try Fixture(); defer { fixture.remove() }
         try fixture.add("one")
@@ -681,6 +696,8 @@ struct ObservationChecksMain {
         print("PASS testFileReplacementAndEvidenceValidation")
         try await tests.testColdSessionReconciliationAndTruncatedLogRecovery()
         print("PASS testColdSessionReconciliationAndTruncatedLogRecovery")
+        try await tests.testSubagentTaskNameWithoutTitle()
+        print("PASS testSubagentTaskNameWithoutTitle")
         try await tests.testCatalogBoundsEmbeddedPromptMetadata()
         print("PASS testCatalogBoundsEmbeddedPromptMetadata")
         try await tests.testColdCheckpointResumesWithoutSelectionAfterRestart()
@@ -693,6 +710,6 @@ struct ObservationChecksMain {
         print("PASS testContextIncrementalIndexAndMissingReplacementRemainExplicit")
         try await tests.testContextComparisonUsesAdjacentPositionsAndRespectsModelAndPhaseBoundaries()
         print("PASS testContextComparisonUsesAdjacentPositionsAndRespectsModelAndPhaseBoundaries")
-        print("Observation checks passed: 27 scenarios")
+        print("Observation checks passed: 28 scenarios")
     }
 }
