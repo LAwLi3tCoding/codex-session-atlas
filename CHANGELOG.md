@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.9.2 — 2026-10-10
+
+- Show reasoning effort beside each agent's model in the collaboration list.
+- Show subagent task titles when available, with recorded task names as a fallback when titles are missing.
+- Label task names separately from task descriptions; unavailable or encrypted descriptions remain unknown.
+- Added regression coverage for subagents with empty titles and recorded task paths.
+
 ## 0.9.1 — 2026-09-24
 
 - Reduced the white icon tile by 6.4%, increased transparent padding, and softened its corners for a more balanced Dock appearance.
